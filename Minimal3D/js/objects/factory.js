@@ -1,3 +1,4 @@
+/* This file has functions to create and load 3D objects, like models and shapes. We need this to add things to the scene. Without it, there would be nothing to see in 3D. For beginners: This is like a factory that builds and imports 3D items so we can place them in our virtual world. */
 /* Factory for creating objects - Functions to make and add 3D objects to the scene */
 W3D.Factory = {
   // Helper to create a material (color and appearance) for meshes
@@ -56,12 +57,12 @@ W3D.Factory = {
       // Enable shadows on all parts of the model
       model.traverse(c => { c.castShadow = true; c.receiveShadow = true; });
 
-      // Auto-scale model to approximately 36 meters in max dimension (36 blocks * 0.5 m per block)
+      // Auto-scale model to approximately 96 units in max dimension (48 meters with 0.5m grid step)
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const currentLength = Math.max(size.x, size.z, size.y);
       if (currentLength > 0) {
-        const targetLength = 36; // real-world target length in meters
+        const targetLength = 96; // target length in scene units (0.5m per unit)
         const scaleFactor = targetLength / currentLength;
         model.scale.multiplyScalar(scaleFactor);
       }

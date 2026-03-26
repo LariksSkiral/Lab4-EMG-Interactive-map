@@ -1,3 +1,4 @@
+/* This file starts the app when the page loads. It calls the setup functions and loads the 3D model. We need this to kick off everything. Without it, the app wouldn't run. For beginners: This is like the 'start' button that gets everything going when you open the page. */
 /* Application entry point - This starts the app when the page loads */
 W3D.init = function() {
   W3D.initRenderer(); // Set up the 3D scene, camera, lights, etc.
