@@ -12,11 +12,11 @@ W3D.initRenderer = function () {
   W3D.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   W3D.renderer.shadowMap.enabled = true;
   W3D.renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
-  W3D.renderer.setClearColor(0x1a1c20);
+  W3D.renderer.setClearColor(0xffffff);
 
   /* ── Scene ── */
   W3D.scene = new THREE.Scene();
-  W3D.scene.fog = new THREE.FogExp2(0x1a1c20, 0.006);
+  W3D.scene.fog = new THREE.FogExp2(0xffffff, 0.006);
 
   /* ── Camera ── */
   const { width, height } = viewport.getBoundingClientRect();

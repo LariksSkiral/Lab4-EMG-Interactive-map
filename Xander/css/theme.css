@@ -11,7 +11,7 @@
   --bg-input:     #f5f2ee;   /* input fields                         */
   --bg-hover:     #ede9e3;   /* hover state                          */
   --bg-active:    #e4dfd7;   /* pressed / active                     */
-  --bg-viewport:  #1a1c20;   /* 3D viewport background               */
+  --bg-viewport:  #efefef;   /* 3D viewport background               */
 
   /* ── Borders ── */
   --border:       #dbd5cc;
