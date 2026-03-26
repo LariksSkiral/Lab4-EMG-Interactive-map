@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal 3D Rotating Model</title>
+  <!-- Basic CSS to make the page full-screen and hide margins -->
+  <style>
+    body { margin: 0; overflow: hidden; background: #f0f0f0; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <!-- The canvas where Three.js will draw the 3D scene -->
+  <canvas id="three-canvas"></canvas>
+
+  <!-- Load Three.js library from CDN (Content Delivery Network) for 3D graphics -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Load OrbitControls for mouse interaction (zoom, rotate view) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Load GLTFLoader to load 3D model files (.glb or .gltf) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <!-- Load our custom JavaScript modules -->
+  <script src="js/core/state.js"></script>
+  <script src="js/core/renderer.js"></script>
+  <script src="js/objects/factory.js"></script>
+  <script src="js/core/main.js"></script>
+</body>
+</html>
