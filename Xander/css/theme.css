@@ -1,0 +1,104 @@
+/* ═══════════════════════════════════════════════
+   theme.css  —  Design tokens & global resets
+   Light theme with orange/yellow accent palette
+═══════════════════════════════════════════════ */
+
+:root {
+  /* ── Surfaces ── */
+  --bg-app:       #f0ede8;   /* warm off-white app background        */
+  --bg-panel:     #faf8f5;   /* sidebar / panel background           */
+  --bg-card:      #ffffff;   /* cards, sections                      */
+  --bg-input:     #f5f2ee;   /* input fields                         */
+  --bg-hover:     #ede9e3;   /* hover state                          */
+  --bg-active:    #e4dfd7;   /* pressed / active                     */
+  --bg-viewport:  #1a1c20;   /* 3D viewport background               */
+
+  /* ── Borders ── */
+  --border:       #dbd5cc;
+  --border-mid:   #c8c0b4;
+  --border-dark:  #b0a898;
+
+  /* ── Text ── */
+  --text-0:       #1c1a17;   /* primary text                         */
+  --text-1:       #5a5248;   /* secondary text                       */
+  --text-2:       #8c8278;   /* muted / labels                       */
+  --text-3:       #b0a898;   /* placeholder                          */
+
+  /* ── Orange accent (primary) ── */
+  --accent:       #e8720c;   /* vivid orange                         */
+  --accent-light: #fce8d6;   /* tinted background                    */
+  --accent-mid:   #f09040;   /* medium orange                        */
+  --accent-dark:  #c45a00;   /* dark orange                          */
+
+  /* ── Yellow accent (secondary) ── */
+  --yellow:       #f5c200;   /* bright yellow                        */
+  --yellow-light: #fdf6d0;   /* tinted background                    */
+  --yellow-dark:  #c49000;
+
+  /* ── Status ── */
+  --green:        #2e9e5b;
+  --green-light:  #d4f0e2;
+  --red:          #d63b3b;
+  --red-light:    #fde8e8;
+  --blue:         #2b6cb0;
+  --blue-light:   #dbeafe;
+
+  /* ── Type ── */
+  --font-ui:      'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+
+  /* ── Geometry ── */
+  --radius-sm:    4px;
+  --radius:       6px;
+  --radius-lg:    10px;
+  --radius-xl:    14px;
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+  --shadow:       0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg:    0 12px 32px rgba(0,0,0,0.14), 0 4px 8px rgba(0,0,0,0.08);
+  --transition:   0.14s ease;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-app);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar            { width: 5px; height: 5px; }
+::-webkit-scrollbar-track      { background: transparent; }
+::-webkit-scrollbar-thumb      { background: var(--border-mid); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover{ background: var(--border-dark); }
+
+/* ── Focus ring ── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Utility ── */
+.hidden { display: none !important; }
+
+input[type=checkbox] { accent-color: var(--accent); }
+input[type=range] {
+  -webkit-appearance: none;
+  background: var(--border);
+  height: 4px; border-radius: 4px;
+  flex: 1; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+}

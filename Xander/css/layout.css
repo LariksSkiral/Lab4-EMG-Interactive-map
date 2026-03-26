@@ -1,0 +1,253 @@
+/* ═══════════════════════════════════════════════
+   layout.css  —  Screen layout, topbar, main grid
+═══════════════════════════════════════════════ */
+
+/* ── Screens ── */
+.screen { display: none; width: 100%; height: 100%; }
+.screen.active { display: flex; flex-direction: column; }
+
+/* ── App screen grid ── */
+#app-screen { background: var(--bg-app); }
+#main-area  {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ══════════════════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════════════════ */
+#login-screen {
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--bg-app);
+}
+
+.login-bg {
+  position: absolute; inset: 0;
+  overflow: hidden; pointer-events: none;
+}
+.login-grid {
+  position: absolute; inset: -100px;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.7;
+  animation: gridMove 24s linear infinite;
+}
+@keyframes gridMove {
+  from { transform: translate(0,0); }
+  to   { transform: translate(44px,44px); }
+}
+
+.login-wrap {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 44px;
+  padding: 48px 24px;
+  width: 100%; max-width: 640px;
+}
+
+.login-logo { text-align: center; }
+.logo-hex {
+  font-size: 52px; color: var(--accent);
+  display: block; margin-bottom: 10px;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 40%, transparent));
+  animation: hexPulse 3s ease-in-out infinite;
+}
+@keyframes hexPulse {
+  0%,100% { filter: drop-shadow(0 0 8px  color-mix(in srgb, var(--accent) 30%, transparent)); }
+  50%     { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 60%, transparent)); }
+}
+.login-logo h1 {
+  font-family: var(--font-mono);
+  font-size: 38px; font-weight: 600;
+  letter-spacing: -1px; color: var(--text-0);
+}
+.logo-accent { color: var(--accent); }
+.logo-sub {
+  font-size: 11px; text-transform: uppercase;
+  letter-spacing: 3px; color: var(--text-2);
+  margin-top: 6px;
+}
+
+.login-cards {
+  display: flex; align-items: flex-start;
+  gap: 20px; width: 100%;
+}
+.role-divider {
+  flex-shrink: 0; padding-top: 72px;
+  font-size: 11px; color: var(--text-3);
+}
+.role-card {
+  flex: 1; background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 28px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.role-card:hover {
+  border-color: var(--accent-mid);
+  box-shadow: var(--shadow);
+}
+.role-icon  { font-size: 28px; margin-bottom: 10px; }
+.role-card h2 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+.role-card p  { font-size: 12px; color: var(--text-1); line-height: 1.6; margin-bottom: 18px; }
+
+.admin-fields { display: flex; flex-direction: column; gap: 8px; }
+.admin-fields input {
+  background: var(--bg-input); border: 1.5px solid var(--border);
+  color: var(--text-0); padding: 9px 12px;
+  border-radius: var(--radius); font-size: 13px;
+  font-family: var(--font-ui); outline: none;
+  transition: border-color var(--transition);
+}
+.admin-fields input:focus { border-color: var(--accent); }
+
+.btn-role {
+  background: var(--bg-input); border: 1.5px solid var(--border-mid);
+  color: var(--text-0); padding: 9px 14px;
+  border-radius: var(--radius); cursor: pointer;
+  font-family: var(--font-mono); font-size: 12px;
+  font-weight: 600;
+  transition: all var(--transition); text-align: left;
+}
+.btn-role:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.btn-role.admin { background: var(--accent); border-color: var(--accent-dark); color: #fff; }
+.btn-role.admin:hover { background: var(--accent-dark); }
+
+.login-err { color: var(--red); font-size: 11px; min-height: 16px; }
+
+/* ══════════════════════════════════════════════
+   TOP BAR
+══════════════════════════════════════════════ */
+#topbar {
+  height: 46px;
+  background: var(--bg-card);
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 12px; gap: 6px;
+  flex-shrink: 0; z-index: 100;
+  box-shadow: var(--shadow-sm);
+}
+.tb-left, .tb-center, .tb-right {
+  display: flex; align-items: center; gap: 5px;
+}
+.tb-left   { flex: 1; }
+.tb-center { flex: 2; justify-content: center; }
+.tb-right  { flex: 1; justify-content: flex-end; }
+
+.tb-logo {
+  font-family: var(--font-mono); font-size: 13px;
+  font-weight: 600; color: var(--accent);
+  margin-right: 10px;
+}
+.tb-scene-name {
+  font-size: 13px; color: var(--text-1);
+  font-style: italic; max-width: 180px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
+
+.tb-btn {
+  background: transparent; border: 1.5px solid transparent;
+  color: var(--text-1); padding: 4px 10px;
+  border-radius: var(--radius); cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  transition: all var(--transition); white-space: nowrap;
+}
+.tb-btn:hover { background: var(--bg-hover); border-color: var(--border); color: var(--text-0); }
+.tb-btn.active {
+  background: var(--accent-light); border-color: var(--accent);
+  color: var(--accent-dark); font-weight: 600;
+}
+
+.user-badge {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  padding: 3px 9px; border-radius: 99px;
+  background: var(--yellow-light); color: var(--yellow-dark);
+  border: 1.5px solid var(--yellow);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.user-badge.admin {
+  background: var(--accent-light); color: var(--accent-dark);
+  border-color: var(--accent-mid);
+}
+
+/* ══════════════════════════════════════════════
+   VIEWPORT
+══════════════════════════════════════════════ */
+#viewport {
+  flex: 1; position: relative;
+  overflow: hidden;
+  background: var(--bg-viewport);
+  min-width: 0;
+}
+#three-canvas { display: block; width: 100%; height: 100%; }
+
+#vp-overlay {
+  position: absolute; bottom: 12px; left: 12px;
+  display: flex; gap: 8px; pointer-events: none;
+}
+#vp-overlay span {
+  font-family: var(--font-mono); font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  background: rgba(0,0,0,0.3);
+  padding: 3px 9px; border-radius: 99px;
+}
+
+.draw-hint {
+  position: absolute; top: 14px; left: 50%;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--accent) 90%, black);
+  color: #fff; font-size: 12px; font-weight: 500;
+  padding: 7px 18px; border-radius: 99px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  animation: hintIn 0.2s ease;
+}
+@keyframes hintIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Context menu */
+.ctx-menu {
+  position: fixed; z-index: 900;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 5px; min-width: 150px;
+  box-shadow: var(--shadow-lg);
+}
+.ctx-item {
+  padding: 7px 13px; border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 12px; font-weight: 500;
+  color: var(--text-0); transition: background var(--transition);
+}
+.ctx-item:hover { background: var(--bg-hover); }
+.ctx-item.danger { color: var(--red); }
+.ctx-item.danger:hover { background: var(--red-light); }
+.ctx-sep { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ── Notification toasts ── */
+.notif {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  background: var(--bg-card); border: 1.5px solid var(--border);
+  border-left: 4px solid var(--accent);
+  color: var(--text-0); font-size: 12px; font-weight: 500;
+  padding: 10px 18px; border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: notifIn 0.2s ease, notifOut 0.4s ease 2.7s forwards;
+  max-width: 300px;
+}
+.notif.error  { border-left-color: var(--red); }
+.notif.warn   { border-left-color: var(--yellow); }
+.notif.success{ border-left-color: var(--green); }
+
+@keyframes notifIn  { from { opacity: 0; transform: translateX(20px); } }
+@keyframes notifOut { to   { opacity: 0; transform: translateY(8px); } }
