@@ -10,7 +10,7 @@
   <title>Minimal3D Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" crossorigin href="/assets/ui-DbGlvlcE.css">
+  <link rel="stylesheet" crossorigin href="/assets/ui-Bc4sIQkW.css">
 </head>
 <body>
   <div class="app-shell">
@@ -49,45 +49,108 @@
       </div>
     </section>
 
-    <div id="admin-panel" class="admin-layout is-hidden">
-      <aside class="admin-panel">
-        <section class="section-card">
-          <h3>Supabase Storage</h3>
-          <p>
-            Upload 3D model files to your bucket, refresh what is stored there,
-            and load a selected model directly into the current scene.
-          </p>
+    <!-- Admin workspace: fullscreen 3D canvas + overlay taskbar + slide-in drawer -->
+    <div id="admin-panel" class="admin-workspace is-hidden">
 
-          <div class="storage-panel" aria-label="Supabase storage controls">
-            <label for="sb-file-input">1) Choose local .glb or .gltf</label>
-            <input id="sb-file-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
+      <!-- 3D scene fills the entire workspace -->
+      <canvas id="three-canvas"></canvas>
 
-            <button id="sb-upload-btn" type="button">Upload To Supabase</button>
-
-            <label for="sb-file-select">2) Select uploaded model</label>
-            <select id="sb-file-select">
-              <option value="">No files loaded yet</option>
-            </select>
-
-            <button id="sb-refresh-btn" class="secondary" type="button">Refresh File List</button>
-            <button id="sb-load-btn" type="button">Load Selected Model In Scene</button>
-
-            <div id="sb-status" class="status" role="status" aria-live="polite"></div>
+      <!-- Slide-in uploader drawer (hidden by default, opens when + is clicked) -->
+      <aside id="uploader-drawer" class="uploader-drawer" aria-label="Model uploader">
+        <div class="drawer-header">
+          <div class="drawer-title-row">
+            <span class="drawer-icon">⬡</span>
+            <span class="drawer-title">Upload Model</span>
           </div>
-        </section>
+          <button id="drawer-close" class="drawer-close" type="button" title="Close panel">✕</button>
+        </div>
 
-        <section class="section-card">
-          <h3>Notes</h3>
-          <p>
-            If uploads work but list is empty, check whether the app is reading the same
-            bucket folder where files are uploaded. The status text shows the exact path.
-          </p>
-        </section>
+        <!-- Step 1: Drop zone / file picker -->
+        <div class="drawer-section">
+          <p class="drawer-label">Add a 3D file to your Supabase bucket</p>
+
+          <!-- Drag-and-drop zone. Click or drag a file onto it. -->
+          <label id="drop-zone" class="drop-zone" for="sb-file-input" tabindex="0" role="button"
+                 aria-label="Drag and drop a .glb or .gltf file, or click to browse">
+            <span class="drop-icon">↑</span>
+            <span class="drop-primary">Drop .glb or .gltf here</span>
+            <span class="drop-secondary">or click to browse your files</span>
+            <!-- Hidden real file input, triggered by the label above -->
+            <input id="sb-file-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                   style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+          </label>
+
+          <!-- File preview: shown after a file is selected, hidden by default -->
+          <div id="file-preview" class="file-preview is-hidden">
+            <span class="file-preview-icon">◈</span>
+            <div class="file-preview-info">
+              <span id="file-preview-name" class="file-preview-name">filename.glb</span>
+              <span id="file-preview-size" class="file-preview-size">— KB</span>
+            </div>
+            <button id="file-preview-clear" class="file-preview-clear" type="button" title="Remove file">✕</button>
+          </div>
+
+          <button id="sb-upload-btn" class="drawer-btn primary" type="button" disabled>
+            Upload to Supabase
+          </button>
+        </div>
+
+        <!-- Divider between upload and model library -->
+        <div class="drawer-divider"></div>
+
+        <!-- Step 2: Uploaded models library -->
+        <div class="drawer-section">
+          <div class="drawer-library-header">
+            <span class="drawer-label">Uploaded models</span>
+            <button id="sb-refresh-btn" class="drawer-icon-btn" type="button" title="Refresh list">↻</button>
+          </div>
+
+          <!-- List of files fetched from Supabase, populated dynamically -->
+          <div id="sb-file-list" class="sb-file-list">
+            <!-- Items are injected here by supabase.js listFilesAndPopulateDropdown -->
+            <div class="sb-file-empty">No models uploaded yet</div>
+          </div>
+
+          <!-- Hidden select kept for backwards-compatibility with supabase.js logic -->
+          <select id="sb-file-select" style="display:none"></select>
+
+          <button id="sb-load-btn" class="drawer-btn secondary" type="button" disabled>
+            Load selected model
+          </button>
+        </div>
+
+        <!-- Status / error message at the bottom of the drawer -->
+        <div id="sb-status" class="drawer-status" role="status" aria-live="polite"></div>
       </aside>
 
-      <main class="main-stage">
-        <canvas id="three-canvas"></canvas>
-      </main>
+      <!-- Figma-style bottom taskbar, floating over the 3D viewport -->
+      <nav class="taskbar" aria-label="Editor tools">
+        <!-- Primary: add / upload action -->
+        <button id="btn-open-uploader" class="task-btn primary" type="button" title="Upload model">
+          <span class="task-icon task-icon-plus">＋</span>
+          <span class="task-label">Add</span>
+        </button>
+
+        <!-- Divider between primary and secondary actions -->
+        <div class="taskbar-sep"></div>
+
+        <!-- Secondary: transform tools (placeholder, will be wired up later) -->
+        <div class="taskbar-group">
+          <button class="task-btn" type="button" title="Move (coming soon)" disabled>
+            <span class="task-icon">⤢</span>
+            <span class="task-label">Move</span>
+          </button>
+          <button class="task-btn" type="button" title="Scale (coming soon)" disabled>
+            <span class="task-icon">⤡</span>
+            <span class="task-label">Scale</span>
+          </button>
+          <button class="task-btn" type="button" title="Rotate (coming soon)" disabled>
+            <span class="task-icon">↻</span>
+            <span class="task-label">Rotate</span>
+          </button>
+        </div>
+      </nav>
+
     </div>
   </div>
 
@@ -97,7 +160,7 @@
       SUPABASE_URL: 'https://hziltkgyworuslnpadmb.supabase.co',
       SUPABASE_ANON_KEY: 'sb_publishable_s1XrmOzmECiC-Q4YqRp6wg_tipgegsE',
       SUPABASE_BUCKET: 'models',
-      SUPABASE_FOLDER: '',
+      SUPABASE_FOLDER: '%VITE_SUPABASE_FOLDER%',
     };
   </script>
 

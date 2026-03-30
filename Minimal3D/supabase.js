@@ -489,20 +489,25 @@ W3D.Supabase = {
 			return;
 		}
 
-		// Ask Supabase to build a public link for selected file path.
-		const { data, error } = this.client.storage.from(this.config.bucket).getPublicUrl(filePath);
-		if (error) {
-			this.setStatus(`Could not get public URL: ${error.message}`, true);
-			console.error('Supabase public URL error:', error);
-			return;
+		// Build a URL that works for both private and public buckets.
+		// Private buckets need signed URLs; public buckets can use public URLs.
+		const storageRef = this.client.storage.from(this.config.bucket);
+		let modelUrl = '';
+
+		const { data: signedData, error: signedError } = await storageRef.createSignedUrl(filePath, 60 * 60);
+		if (!signedError && signedData && signedData.signedUrl) {
+			modelUrl = signedData.signedUrl;
 		}
 
-		// Extract URL safely.
-		const publicUrl = data && data.publicUrl ? data.publicUrl : '';
+		if (!modelUrl) {
+			const { data: publicData } = storageRef.getPublicUrl(filePath);
+			modelUrl = publicData && publicData.publicUrl ? publicData.publicUrl : '';
+		}
 
-		// Guard: URL build failed.
-		if (!publicUrl) {
-			this.setStatus('Could not build public URL for selected file.', true);
+		if (!modelUrl) {
+			const reason = signedError ? signedError.message : 'Could not build a URL for selected file.';
+			this.setStatus(reason, true);
+			console.error('Supabase URL build error:', signedError);
 			return;
 		}
 
@@ -513,6 +518,6 @@ W3D.Supabase = {
 		this.setStatus(`Loading ${fileName} into the scene...`);
 
 		// Use existing Three.js factory method to load model from URL.
-		W3D.Factory.loadRemoteGLTF(publicUrl, fileName);
+		W3D.Factory.loadRemoteGLTF(modelUrl, fileName);
 	},
 };
