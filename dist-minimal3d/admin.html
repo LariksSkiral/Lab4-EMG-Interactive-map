@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<!--
+  Admin page for Minimal3D.
+  This page contains management tools such as Supabase model upload and loading.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal3D Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" crossorigin href="/assets/ui-DbGlvlcE.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="tb-left">
+        <span class="tb-logo">⬡ Minimal3D</span>
+        <span class="tb-scene-name">Admin Mode</span>
+      </div>
+      <div class="tb-right">
+        <span class="tb-badge">Admin</span>
+        <a class="tb-btn" href="index.html">Viewer</a>
+        <a class="tb-btn active" href="admin.html">Admin</a>
+        <button id="btn-auth-logout" class="tb-btn" type="button">Logout</button>
+      </div>
+    </header>
+
+    <section id="login-panel" class="auth-shell">
+      <div class="auth-card">
+        <h2>Admin Login</h2>
+        <p>
+          Sign in with your Supabase account to unlock admin actions like model upload and management.
+        </p>
+
+        <label class="auth-label" for="auth-email">Email</label>
+        <input id="auth-email" class="auth-input" type="email" placeholder="name@example.com" autocomplete="email">
+
+        <label class="auth-label" for="auth-password">Password</label>
+        <input id="auth-password" class="auth-input" type="password" placeholder="Your password" autocomplete="current-password">
+
+        <div class="auth-row">
+          <button id="btn-auth-login" class="auth-btn" type="button">Login</button>
+          <button id="btn-auth-register" class="auth-btn secondary" type="button">Register</button>
+        </div>
+
+        <div id="auth-error" class="auth-error" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <div id="admin-panel" class="admin-layout is-hidden">
+      <aside class="admin-panel">
+        <section class="section-card">
+          <h3>Supabase Storage</h3>
+          <p>
+            Upload 3D model files to your bucket, refresh what is stored there,
+            and load a selected model directly into the current scene.
+          </p>
+
+          <div class="storage-panel" aria-label="Supabase storage controls">
+            <label for="sb-file-input">1) Choose local .glb or .gltf</label>
+            <input id="sb-file-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
+
+            <button id="sb-upload-btn" type="button">Upload To Supabase</button>
+
+            <label for="sb-file-select">2) Select uploaded model</label>
+            <select id="sb-file-select">
+              <option value="">No files loaded yet</option>
+            </select>
+
+            <button id="sb-refresh-btn" class="secondary" type="button">Refresh File List</button>
+            <button id="sb-load-btn" type="button">Load Selected Model In Scene</button>
+
+            <div id="sb-status" class="status" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="section-card">
+          <h3>Notes</h3>
+          <p>
+            If uploads work but list is empty, check whether the app is reading the same
+            bucket folder where files are uploaded. The status text shows the exact path.
+          </p>
+        </section>
+      </aside>
+
+      <main class="main-stage">
+        <canvas id="three-canvas"></canvas>
+      </main>
+    </div>
+  </div>
+
+  <!-- Vite replaces these placeholders with .env values when served. -->
+  <script>
+    window.APP_CONFIG = {
+      SUPABASE_URL: 'https://hziltkgyworuslnpadmb.supabase.co',
+      SUPABASE_ANON_KEY: 'sb_publishable_s1XrmOzmECiC-Q4YqRp6wg_tipgegsE',
+      SUPABASE_BUCKET: 'models',
+      SUPABASE_FOLDER: '',
+    };
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script src="js/core/state.js"></script>
+  <script src="js/core/renderer.js"></script>
+  <script src="js/objects/factory.js"></script>
+  <script src="supabase.js"></script>
+  <script src="auth.js"></script>
+  <script src="js/core/main.js"></script>
+</body>
+</html>

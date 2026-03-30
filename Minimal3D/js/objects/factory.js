@@ -87,6 +87,31 @@ W3D.Factory = {
     });
   },
 
+  // Load a 3D model from a remote URL (for example: Supabase Storage public file URL)
+  loadRemoteGLTF(url, displayName = 'Supabase Model') {
+    const loader = new THREE.GLTFLoader(); // Loader for GLTF models
+    loader.load(url, gltf => {
+      const model = gltf.scene; // The loaded 3D model
+      // Enable shadows on all parts of the model
+      model.traverse(c => { c.castShadow = true; c.receiveShadow = true; });
+
+      // Auto-scale large models to fit better in the current scene
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3()).length();
+      if (size > 8) { const s = 4 / size; model.scale.set(s, s, s); }
+
+      W3D.scene.add(model); // Add model to scene
+      const obj = {
+        id: W3D.genId(), mesh: model, type: 'gltf',
+        name: displayName.replace(/\.(glb|gltf)$/i, ''),
+        color: '#ffffff', props: { filepath: url }, files: [],
+      };
+      W3D.objects.push(obj); // Track the model
+    }, undefined, err => {
+      console.error('Failed to load remote model:', err); // Log errors
+    });
+  },
+
   // Create a simple box (cube) object
   box({ width = 2, height = 2, depth = 2, color = '#8a9aaa' } = {}) {
     const geo = new THREE.BoxGeometry(width, height, depth); // Shape of the box
