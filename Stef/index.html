@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Builder</title>
+    <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+    <div id="app">
+        <aside class="sidebar">
+            <h2>Asset Library</h2>
+
+            <button id="uploadBtn" type="button">Upload</button>
+            <input id="fileInput" type="file" multiple hidden accept=".fbx,.glb,.gltf,.obj,.stl" />
+
+            <div class="info-box">
+                <p><strong>Controls</strong></p>
+                <p>Klik een asset om placement mode te starten.</p>
+                <p>Klik in de scene om te plaatsen.</p>
+                <p>G = move, R = rotate, S = scale</p>
+                <p>Delete = verwijderen</p>
+            </div>
+
+            <div id="assetList"></div>
+        </aside>
+
+        <main class="main-area">
+            <div class="topbar">
+                <span id="modeLabel">Mode: select</span>
+                <button id="cancelPlacementBtn" type="button">Cancel placement</button>
+            </div>
+            <div id="sceneContainer"></div>
+        </main>
+    </div>
+
+    <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+    }
+  }
+  </script>
+
+    <script type="module" src="./main.js"></script>
+</body>
+
+</html>
