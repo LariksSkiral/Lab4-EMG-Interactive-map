@@ -1,127 +1,51 @@
 <!DOCTYPE html>
-<!-- This is the main HTML file for our 3D app. It sets up the webpage structure, loads the 3D libraries, and connects our JavaScript code. Without this file, the app wouldn't have a page to run on. It's like the foundation of a house - everything else builds on it. For beginners: HTML is the language that describes web pages, and this file tells the browser what to show and load. -->
-
+<!--
+  Main viewer page for Minimal3D.
+  This page focuses on navigation and model viewing.
+  Upload/admin actions are moved to admin.html.
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minimal 3D Rotating Model</title>
-  <!-- Basic CSS to make the page full-screen and hide margins -->
-  <style>
-    body { margin: 0; overflow: hidden; background: #f0f0f0; }
-    canvas { display: block; }
-
-    /*
-      Beginner note:
-      This panel is a simple control box so you can upload .glb files to Supabase
-      and load them back into the scene without opening the browser console.
-    */
-    .storage-panel {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      z-index: 20;
-      width: min(340px, calc(100vw - 32px));
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid #d9dce2;
-      border-radius: 10px;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
-      padding: 14px;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      color: #1a1f2b;
-    }
-
-    .storage-panel h2 {
-      margin: 0 0 8px;
-      font-size: 15px;
-      font-weight: 600;
-    }
-
-    .storage-panel p {
-      margin: 0 0 12px;
-      font-size: 12px;
-      color: #5b6272;
-      line-height: 1.45;
-    }
-
-    .storage-panel label {
-      display: block;
-      margin-top: 10px;
-      margin-bottom: 4px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .storage-panel input,
-    .storage-panel select,
-    .storage-panel button {
-      width: 100%;
-      font-size: 12px;
-      border-radius: 8px;
-      border: 1px solid #cfd5df;
-      padding: 8px;
-      box-sizing: border-box;
-    }
-
-    .storage-panel button {
-      margin-top: 8px;
-      cursor: pointer;
-      background: #16324f;
-      color: #ffffff;
-      border: none;
-      font-weight: 600;
-    }
-
-    .storage-panel button.secondary {
-      background: #edf1f7;
-      color: #23324b;
-      border: 1px solid #cfd5df;
-    }
-
-    .storage-panel .status {
-      margin-top: 10px;
-      font-size: 12px;
-      line-height: 1.35;
-      min-height: 18px;
-      color: #23324b;
-    }
-
-    .storage-panel .status.error {
-      color: #9c1b1b;
-    }
-  </style>
+  <title>Minimal3D Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" crossorigin href="/assets/ui-DbGlvlcE.css">
 </head>
 <body>
-  <!-- The canvas where Three.js will draw the 3D scene -->
-  <canvas id="three-canvas"></canvas>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="tb-left">
+        <span class="tb-logo">⬡ Minimal3D</span>
+        <span class="tb-scene-name">Viewer Mode</span>
+      </div>
+      <div class="tb-right">
+        <span class="tb-badge">Guest</span>
+        <a class="tb-btn active" href="index.html">Viewer</a>
+        <a class="tb-btn" href="admin.html">Admin</a>
+      </div>
+    </header>
 
-  <!--
-    Beginner note:
-    This is the simple user interface for storage actions.
-    You choose a .glb file, upload it, then load uploaded files back into the 3D scene.
-  -->
-  <section class="storage-panel" aria-label="Supabase storage controls">
-    <h2>Supabase GLB Upload</h2>
-    <p>Pick a .glb file, upload it to your Supabase bucket, then load it into the scene.</p>
+    <main class="main-stage">
+      <canvas id="three-canvas"></canvas>
 
-    <label for="sb-file-input">1) Choose a local .glb file</label>
-    <input id="sb-file-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
-    <button id="sb-upload-btn" type="button">Upload To Supabase</button>
+      <section class="floating-card" aria-label="Viewer instructions">
+        <h2>3D Viewer</h2>
+        <p>
+          Use mouse drag to rotate, scroll to zoom, and right-click drag to pan.
+          Open Admin to upload models and load files from Supabase storage.
+        </p>
+        <div class="floating-row">
+          <span class="chip">Orbit Controls</span>
+          <span class="chip">GLB Ready</span>
+          <span class="chip">Supabase Linked</span>
+        </div>
+      </section>
+    </main>
+  </div>
 
-    <label for="sb-file-select">2) Choose an uploaded model</label>
-    <select id="sb-file-select">
-      <option value="">No files loaded yet</option>
-    </select>
-    <button id="sb-refresh-btn" class="secondary" type="button">Refresh File List</button>
-    <button id="sb-load-btn" type="button">Load Selected Model In Scene</button>
-
-    <div id="sb-status" class="status" role="status" aria-live="polite"></div>
-  </section>
-
-  <!--
-    Vite replaces these placeholders with values from your .env file when served via Vite.
-    This lets us keep secrets out of source code.
-  -->
+  <!-- Vite replaces these placeholders with .env values when served. -->
   <script>
     window.APP_CONFIG = {
       SUPABASE_URL: 'https://hziltkgyworuslnpadmb.supabase.co',
@@ -131,16 +55,11 @@
     };
   </script>
 
-  <!-- Load Three.js library from CDN (Content Delivery Network) for 3D graphics -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- Load OrbitControls for mouse interaction (zoom, rotate view) -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <!-- Load GLTFLoader to load 3D model files (.glb or .gltf) -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <!-- Load Supabase JS client so we can upload/list files in Supabase Storage -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Load our custom JavaScript modules -->
   <script src="js/core/state.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/objects/factory.js"></script>

@@ -8,7 +8,10 @@ export default defineConfig({
   build: {
     outDir: '../dist-minimal3d',
     rollupOptions: {
-      input: './Minimal3D/index.html',
+      input: {
+        index: './Minimal3D/index.html',
+        admin: './Minimal3D/admin.html',
+      },
     },
   },
 });
