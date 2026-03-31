@@ -36,6 +36,23 @@ W3D.initRenderer = function() {
   W3D.orbitControls.minDistance = 0.5; // Min zoom
   W3D.orbitControls.maxDistance = 200; // Max zoom
 
+  const floorY = 0;
+  const floorEpsilon = 0.05;
+
+  function clampViewAboveFloor() {
+    const target = W3D.orbitControls.target;
+    const delta = Math.max(
+      floorY - target.y,
+      floorY + floorEpsilon - W3D.camera.position.y,
+      0
+    );
+
+    if (delta > 0) {
+      target.y += delta;
+      W3D.camera.position.y += delta;
+    }
+  }
+
   // Lighting setup
   // Ambient light (soft, everywhere)
   const ambient = new THREE.AmbientLight(0x8090a8, 0.5);
@@ -78,6 +95,7 @@ W3D.initRenderer = function() {
   (function animate() {
     requestAnimationFrame(animate); // Call this function again next frame
     W3D.orbitControls.update(); // Update camera controls
+    clampViewAboveFloor();
 
     // Render (draw) the scene with the camera
     W3D.renderer.render(W3D.scene, W3D.camera);

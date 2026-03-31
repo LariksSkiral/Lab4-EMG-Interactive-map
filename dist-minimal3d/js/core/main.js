@@ -8,8 +8,16 @@ W3D.init = async function() {
   W3D.initRenderer(); // Set up the 3D scene, camera, lights, etc.
 
   // Step 2: Load your default local model so the scene is not empty at start.
-  // Load a local 3D model (replace 'models/your-model.glb' with your file path)
-  W3D.Factory.loadLocalGLTF('models/plattegrond.glb'); // Path relative to the HTML file
+  // Load a local 3D model only when the file is reachable on this deployment.
+  const defaultModelPath = 'models/plattegrond.glb';
+  try {
+    const modelCheck = await fetch(defaultModelPath, { method: 'HEAD' });
+    if (modelCheck.ok || modelCheck.status === 405) {
+      W3D.Factory.loadLocalGLTF(defaultModelPath);
+    }
+  } catch (modelErr) {
+    console.warn('Default local model is not available on this deployment.', modelErr);
+  }
 
   // Step 3: Find key UI elements for auth-driven admin view behavior.
   const loginPanel = document.getElementById('login-panel');
@@ -17,14 +25,14 @@ W3D.init = async function() {
   const hasAdminAuthPanels = Boolean(loginPanel && adminPanel);
   const hasStorageControls = Boolean(document.getElementById('sb-upload-btn'));
 
-  // Step 4: Connect Supabase if this page needs auth or storage functionality.
-  if (W3D.Supabase && (hasAdminAuthPanels || hasStorageControls)) {
-    await W3D.Supabase.initializeFromConfig();
-  }
-
-  // Step 5: Set up upload/list/load controls when they exist on page.
+  // Step 4: Set up upload/list/load controls before init so status errors can be shown.
   if (W3D.Supabase && hasStorageControls) {
     W3D.Supabase.setupUI();
+  }
+
+  // Step 5: Connect Supabase if this page needs auth or storage functionality.
+  if (W3D.Supabase && (hasAdminAuthPanels || hasStorageControls)) {
+    await W3D.Supabase.initializeFromConfig();
   }
 
   // Step 6: Admin authentication workflow and panel switching.
@@ -76,31 +84,41 @@ W3D.init = async function() {
       closeBtn.addEventListener('click', closeDrawer);
     }
 
-    // On SIGNED_IN: hide #login-panel, show #admin-panel.
-    // On SIGNED_OUT: hide #admin-panel, show #login-panel.
-    if (typeof onAuthStateChange === 'function') {
-      onAuthStateChange.call(W3D.Supabase, (event) => {
-        if (event === 'SIGNED_IN') {
-          showAdminPanel();
-          if (authError) authError.textContent = '';
-        }
-        if (event === 'SIGNED_OUT') {
-          showLoginPanel();
-          if (W3D.Supabase && hasStorageControls) {
-            W3D.Supabase.setControlsDisabled(true);
-          }
-        }
-      });
-    }
-
-    const { data, error } = await W3D.Auth.getCurrentUser();
-    if (error) {
-      if (authError) authError.textContent = error.message || 'Could not check current user.';
+    const supabaseReady = Boolean(W3D.Supabase && W3D.Supabase.client);
+    if (!supabaseReady) {
+      if (authError) {
+        authError.textContent = (W3D.Supabase && W3D.Supabase.lastInitError)
+          ? W3D.Supabase.lastInitError
+          : 'Supabase is not configured for this deployment yet.';
+      }
       showLoginPanel();
-    } else if (data && data.user) {
-      showAdminPanel();
     } else {
-      showLoginPanel();
+      // On SIGNED_IN: hide #login-panel, show #admin-panel.
+      // On SIGNED_OUT: hide #admin-panel, show #login-panel.
+      if (typeof onAuthStateChange === 'function') {
+        onAuthStateChange.call(W3D.Supabase, (event) => {
+          if (event === 'SIGNED_IN') {
+            showAdminPanel();
+            if (authError) authError.textContent = '';
+          }
+          if (event === 'SIGNED_OUT') {
+            showLoginPanel();
+            if (W3D.Supabase && hasStorageControls) {
+              W3D.Supabase.setControlsDisabled(true);
+            }
+          }
+        });
+      }
+
+      const { data, error } = await W3D.Auth.getCurrentUser();
+      if (error) {
+        if (authError) authError.textContent = error.message || 'Could not check current user.';
+        showLoginPanel();
+      } else if (data && data.user) {
+        showAdminPanel();
+      } else {
+        showLoginPanel();
+      }
     }
 
     if (loginButton) {

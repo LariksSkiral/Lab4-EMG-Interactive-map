@@ -100,6 +100,13 @@ W3D.Factory = {
       const size = box.getSize(new THREE.Vector3()).length();
       if (size > 8) { const s = 4 / size; model.scale.set(s, s, s); }
 
+      // Keep uploaded models resting on the same y=0 floor as the local model.
+      const boxAfterScale = new THREE.Box3().setFromObject(model);
+      const minY = boxAfterScale.min.y;
+      if (minY !== undefined && !Number.isNaN(minY)) {
+        model.position.y -= minY;
+      }
+
       W3D.scene.add(model); // Add model to scene
       const obj = {
         id: W3D.genId(), mesh: model, type: 'gltf',
