@@ -12,6 +12,7 @@ const assetList = document.getElementById("assetList");
 const container = document.getElementById("sceneContainer");
 const modeLabel = document.getElementById("modeLabel");
 const cancelPlacementBtn = document.getElementById("cancelPlacementBtn");
+const offlineBanner = document.getElementById("offlineBanner");
 
 const SUPPORTED_EXTENSIONS = ["fbx", "glb", "gltf", "obj", "stl"];
 
@@ -26,6 +27,21 @@ const state = {
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+
+// ---------- OFFLINE STATUS ----------
+function updateOfflineStatus() {
+  if (navigator.onLine) {
+    offlineBanner.classList.add("hidden");
+    document.body.classList.remove("is-offline");
+  } else {
+    offlineBanner.classList.remove("hidden");
+    document.body.classList.add("is-offline");
+  }
+}
+
+window.addEventListener("online", updateOfflineStatus);
+window.addEventListener("offline", updateOfflineStatus);
+updateOfflineStatus();
 
 // ---------- SCENE ----------
 const scene = new THREE.Scene();
