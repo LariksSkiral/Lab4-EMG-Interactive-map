@@ -136,3 +136,27 @@ body {
   padding: 12px;
   border: 1px solid #1e293b;
 }
+
+.offline-banner {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.hidden {
+  display: none;
+}
+
+body.is-offline .topbar {
+  border-color: #f59e0b;
+}
