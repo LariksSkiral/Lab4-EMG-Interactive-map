@@ -18,8 +18,12 @@
       <div class="tb-left">
         <span class="tb-logo">⬡ Minimal3D</span>
         <span class="tb-scene-name">Admin Mode</span>
-      </div>
-      <div class="tb-right">
+      </div>      <div class="tb-center">
+        <div class="view-toggle">
+          <button id="btn-view-3d" class="view-btn active" type="button">3D View</button>
+          <button id="btn-view-top" class="view-btn" type="button">Top View</button>
+        </div>
+      </div>      <div class="tb-right">
         <span class="tb-badge">Admin</span>
         <a class="tb-btn" href="index.html">Viewer</a>
         <a class="tb-btn active" href="admin.html">Admin</a>
@@ -123,6 +127,13 @@
         <div id="sb-status" class="drawer-status" role="status" aria-live="polite"></div>
       </aside>
 
+      <!-- Transform info strip – shows selected object info above the taskbar -->
+      <div id="transform-info" class="transform-info is-hidden">
+        <span class="tf-chip"><span class="tf-label">Object</span> <span id="tf-obj-name" class="tf-value">—</span></span>
+        <span class="tf-chip"><span class="tf-label">Pos</span> <span id="tf-obj-pos" class="tf-value">—</span></span>
+        <span class="tf-chip"><span class="tf-label">Rot</span> <span id="tf-obj-rot" class="tf-value">—</span></span>
+      </div>
+
       <!-- Figma-style bottom taskbar, floating over the 3D viewport -->
       <nav class="taskbar" aria-label="Editor tools">
         <!-- Primary: add / upload action -->
@@ -134,17 +145,13 @@
         <!-- Divider between primary and secondary actions -->
         <div class="taskbar-sep"></div>
 
-        <!-- Secondary: transform tools (placeholder, will be wired up later) -->
+        <!-- Transform tools (disabled until an object is selected) -->
         <div class="taskbar-group">
-          <button class="task-btn" type="button" title="Move (coming soon)" disabled>
+          <button id="btn-tool-move" class="task-btn" type="button" title="Move (G)" disabled>
             <span class="task-icon">⤢</span>
             <span class="task-label">Move</span>
           </button>
-          <button class="task-btn" type="button" title="Scale (coming soon)" disabled>
-            <span class="task-icon">⤡</span>
-            <span class="task-label">Scale</span>
-          </button>
-          <button class="task-btn" type="button" title="Rotate (coming soon)" disabled>
+          <button id="btn-tool-rotate" class="task-btn" type="button" title="Rotate (R)" disabled>
             <span class="task-icon">↻</span>
             <span class="task-label">Rotate</span>
           </button>
@@ -166,12 +173,14 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script src="js/core/state.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/objects/factory.js"></script>
+  <script src="js/tools/transform.js"></script>
   <script src="supabase.js"></script>
   <script src="auth.js"></script>
   <script src="js/core/main.js"></script>

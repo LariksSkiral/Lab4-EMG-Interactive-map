@@ -7,6 +7,15 @@ W3D.init = async function() {
   // Step 1: Build the 3D world (camera, lights, grid, renderer).
   W3D.initRenderer(); // Set up the 3D scene, camera, lights, etc.
 
+  // Step 1b: Initialise transform tools (select, move, rotate) if available.
+  if (W3D.Transform) W3D.Transform.init();
+
+  // Step 1c: Wire view-toggle buttons in the topbar.
+  const btn3d  = document.getElementById('btn-view-3d');
+  const btnTop = document.getElementById('btn-view-top');
+  if (btn3d)  btn3d.addEventListener('click',  () => W3D.setViewMode && W3D.setViewMode('3d'));
+  if (btnTop) btnTop.addEventListener('click', () => W3D.setViewMode && W3D.setViewMode('top'));
+
   // Step 2: Load your default local model so the scene is not empty at start.
   // Load a local 3D model only when the file is reachable on this deployment.
   const defaultModelPath = 'models/plattegrond.glb';

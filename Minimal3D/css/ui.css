@@ -78,6 +78,7 @@ body {
   gap: 8px;
   padding: 0 12px;
   z-index: 50;
+  position: relative;
 }
 
 .tb-left,
@@ -85,6 +86,51 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.tb-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+}
+
+/* View toggle pill */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.view-btn {
+  padding: 4px 14px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.view-btn:hover:not(.active) {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+
+.view-btn.active {
+  background: var(--bg-card);
+  color: var(--text-0);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 
 .tb-logo {
@@ -770,6 +816,70 @@ body {
 
 .status.error {
   color: var(--red);
+}
+
+/* ── Transform info strip ────────────────────────────────────────────────── */
+.transform-info {
+  position: absolute;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(28, 26, 23, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  white-space: nowrap;
+}
+
+.tf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.tf-label {
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.4px;
+}
+
+.tf-value {
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ── Keyboard hint badges in taskbar ─────────────────────────────────────── */
+.taskbar-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.taskbar-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 @media (max-width: 900px) {

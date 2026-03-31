@@ -30,10 +30,13 @@ W3D.Factory = {
       // Enable shadows on all parts of the model
       model.traverse(c => { c.castShadow = true; c.receiveShadow = true; });
 
-      // Auto-scale large models to fit better
+      // No scaling – 1 Blender meter = 1 Three.js unit
+      // Ground the model on y=0
       const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3()).length();
-      if (size > 8) { const s = 4 / size; model.scale.set(s, s, s); }
+      const minY = box.min.y;
+      if (minY !== undefined && !Number.isNaN(minY)) {
+        model.position.y -= minY;
+      }
 
       W3D.scene.add(model); // Add model to scene
       const obj = {
@@ -57,21 +60,11 @@ W3D.Factory = {
       // Enable shadows on all parts of the model
       model.traverse(c => { c.castShadow = true; c.receiveShadow = true; });
 
-      // Auto-scale model to approximately 96 units in max dimension (48 meters with 0.5m grid step)
+      // No scaling – 1 Blender meter = 1 Three.js unit
+      // Ground the model on y=0
       const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const currentLength = Math.max(size.x, size.z, size.y);
-      if (currentLength > 0) {
-        const targetLength = 96; // target length in scene units (0.5m per unit)
-        const scaleFactor = targetLength / currentLength;
-        model.scale.multiplyScalar(scaleFactor);
-      }
-
-      // Recompute bounds after scaling so we can correctly place on the grid
-      const boxAfterScale = new THREE.Box3().setFromObject(model);
-      const minY = boxAfterScale.min.y;
+      const minY = box.min.y;
       if (minY !== undefined && !Number.isNaN(minY)) {
-        // Move the model down so lowest point sits on y=0 grid plane
         model.position.y -= minY;
       }
 
@@ -80,6 +73,7 @@ W3D.Factory = {
         id: W3D.genId(), mesh: model, type: 'gltf',
         name: path.split('/').pop().replace(/\.(glb|gltf)$/i, ''), // Get filename from path
         color: '#ffffff', props: { filepath: path }, files: [],
+        static: true, // Local base map: not selectable or moveable
       };
       W3D.objects.push(obj); // Track the model
     }, undefined, err => {
@@ -95,14 +89,10 @@ W3D.Factory = {
       // Enable shadows on all parts of the model
       model.traverse(c => { c.castShadow = true; c.receiveShadow = true; });
 
-      // Auto-scale large models to fit better in the current scene
+      // No scaling – 1 Blender meter = 1 Three.js unit
+      // Ground the model on y=0
       const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3()).length();
-      if (size > 8) { const s = 4 / size; model.scale.set(s, s, s); }
-
-      // Keep uploaded models resting on the same y=0 floor as the local model.
-      const boxAfterScale = new THREE.Box3().setFromObject(model);
-      const minY = boxAfterScale.min.y;
+      const minY = box.min.y;
       if (minY !== undefined && !Number.isNaN(minY)) {
         model.position.y -= minY;
       }
