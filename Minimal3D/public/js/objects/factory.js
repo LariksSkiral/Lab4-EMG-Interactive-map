@@ -35,10 +35,54 @@ W3D.Factory = {
   // We use one helper so local files, storage files, and database-restored files
   // all create object records with the same shape.
   _registerLoadedModel(model, type, name, props = {}, options = {}) {
-    // Turn on shadows for every mesh inside the imported model.
+    // Tune imported model materials in one place.
+    // This is where we reduce visual striping caused by harsh highlights and low-angle texture sampling.
+    const maxAnisotropy = (W3D.renderer && W3D.renderer.capabilities)
+      ? W3D.renderer.capabilities.getMaxAnisotropy()
+      : 1;
+
+    // Turn on shadow receiving, but do not force every mesh to cast shadows.
+    // For many detailed models, all-mesh casting often causes visible shadow acne lines.
     model.traverse(child => {
-      child.castShadow = true;
+      if (!child.isMesh) return;
+
+      child.castShadow = false;
       child.receiveShadow = true;
+
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach(material => {
+        if (!material) return;
+
+        // Keep specular highlights a little softer to avoid bright aliasing bands.
+        if (typeof material.roughness === 'number' && material.roughness < 0.35) {
+          material.roughness = 0.35;
+        }
+
+        // Normal maps can be too strong for realtime shadowed scenes.
+        // A lower normal scale often removes striping without making assets look flat.
+        if (material.normalScale && typeof material.normalScale.set === 'function') {
+          material.normalScale.set(0.6, 0.6);
+        }
+
+        const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap'];
+        textureKeys.forEach(key => {
+          const texture = material[key];
+          if (!texture) return;
+
+          // Better filtering at grazing angles helps remove crawling/striped details.
+          texture.anisotropy = Math.min(8, maxAnisotropy);
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.needsUpdate = true;
+
+          // Normal maps must stay in linear color space.
+          if (key === 'normalMap') {
+            texture.encoding = THREE.LinearEncoding;
+          }
+        });
+
+        material.needsUpdate = true;
+      });
     });
 
     // Place the model neatly on the floor before applying saved transforms.

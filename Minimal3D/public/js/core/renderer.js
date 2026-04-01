@@ -8,6 +8,11 @@ W3D.initRenderer = function() {
   W3D.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   // Make it look sharp on high-DPI screens
   W3D.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Render final colors in sRGB so materials and textures look correct on screen.
+  W3D.renderer.outputEncoding = THREE.sRGBEncoding;
+  // Tone mapping helps indoor lights feel less flat and more realistic.
+  W3D.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  W3D.renderer.toneMappingExposure = 1.08;
   // Enable shadows for realistic lighting
   W3D.renderer.shadowMap.enabled = true;
   W3D.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -16,8 +21,8 @@ W3D.initRenderer = function() {
 
   // Create the 3D scene (container for all objects)
   W3D.scene = new THREE.Scene();
-  // Add fog for depth (makes distant objects fade) – only in 3D view
-  W3D.scene.fog = new THREE.FogExp2(0xffffff, 0.006);
+  // Indoor setting: keep atmosphere clean instead of outdoor-like fog.
+  W3D.scene.fog = null;
 
   // ── Perspective camera (3D view) ─────────────────────────────────────────
   W3D.camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 800);
@@ -62,7 +67,8 @@ W3D.initRenderer = function() {
       );
     } else {
       W3D.activeCamera = W3D.camera;
-      W3D.scene.fog = new THREE.FogExp2(0xffffff, 0.006);
+      // Keep 3D mode crisp as an indoor workshop, without outdoor haze.
+      W3D.scene.fog = null;
       W3D.orbitControls.object = W3D.camera;
       W3D.orbitControls.enableRotate = true;
       W3D.orbitControls.enablePan = true;
@@ -111,27 +117,44 @@ W3D.initRenderer = function() {
     }
   }
 
-  // Lighting setup
-  // Ambient light (soft, everywhere)
-  const ambient = new THREE.AmbientLight(0x8090a8, 0.5);
+  // Lighting setup (indoor mechanic workshop)
+  // 1) Very soft base light so shadows never become fully black.
+  const ambient = new THREE.AmbientLight(0xf4f6f8, 0.34);
   W3D.scene.add(ambient);
 
-  // Directional light (sun-like, with shadows)
-  const sun = new THREE.DirectionalLight(0xfff8f0, 0.85);
-  sun.position.set(16, 22, 12);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048); // Shadow quality
-  sun.shadow.camera.near = 0.5;
-  sun.shadow.camera.far = 120;
-  sun.shadow.camera.left = -50;
-  sun.shadow.camera.right = 50;
-  sun.shadow.camera.top = 50;
-  sun.shadow.camera.bottom = -50;
-  W3D.scene.add(sun);
+  // 2) Ceiling fixtures: these replace sunlight and sky lighting.
+  // We place a simple grid of indoor lights to mimic workshop luminaires.
+  const ceilingLights = [
+    [-18, 6.5, -18],
+    [0, 6.5, -18],
+    [18, 6.5, -18],
+    [-18, 6.5, 0],
+    [0, 6.5, 0],
+    [18, 6.5, 0],
+    [-18, 6.5, 18],
+    [0, 6.5, 18],
+    [18, 6.5, 18],
+  ];
 
-  // Hemisphere light (sky-like fill)
-  const fill = new THREE.HemisphereLight(0x6688cc, 0x442200, 0.35);
-  W3D.scene.add(fill);
+  ceilingLights.forEach((position, index) => {
+    // Slightly cool white typical for workshop LED/fluorescent tubes.
+    const fixture = new THREE.PointLight(0xf8fbff, 0.78, 38, 2);
+    fixture.position.set(position[0], position[1], position[2]);
+
+    // Only let a few fixtures cast shadows to keep performance smooth.
+    const shouldCastShadows = index === 1 || index === 4 || index === 7;
+    fixture.castShadow = shouldCastShadows;
+    if (shouldCastShadows) {
+      fixture.shadow.mapSize.set(2048, 2048);
+      // Normal bias is the most important setting to reduce diagonal striping (shadow acne).
+      fixture.shadow.normalBias = 0.02;
+      fixture.shadow.bias = -0.00002;
+      fixture.shadow.camera.near = 0.5;
+      fixture.shadow.camera.far = 25;
+    }
+
+    W3D.scene.add(fixture);
+  });
 
   // Add a grid on the ground for reference
   // 1 unit = 1 meter (matching Blender scale), each grid block = 0.5 units (0.5m)
