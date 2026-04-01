@@ -158,6 +158,140 @@ W3D.Database = {
     return Number.isFinite(parsed) ? parsed : fallback;
   },
 
+  // Convert any stored model reference into a clean storage path when possible.
+  // Why this exists:
+  // - Older rows may contain full Supabase URLs instead of bucket-relative paths.
+  // - Signed URLs expire, so we must recover the path and generate a fresh URL.
+  _normalizeStoragePath(rawValue) {
+    if (!rawValue) return '';
+
+    const value = String(rawValue).trim();
+    if (!value) return '';
+
+    const bucket = (W3D.Supabase && W3D.Supabase.config && W3D.Supabase.config.bucket) || '';
+
+    // Helper: remove leading slashes and (optionally) the bucket prefix.
+    // Some older rows stored paths like "models/file.glb" instead of just "file.glb".
+    const stripBucketPrefix = (pathValue) => {
+      if (!pathValue) return '';
+      const withoutLeadingSlash = String(pathValue).replace(/^\/+/, '');
+      if (bucket && withoutLeadingSlash.startsWith(`${bucket}/`)) {
+        return withoutLeadingSlash.slice(bucket.length + 1);
+      }
+      return withoutLeadingSlash;
+    };
+
+    // Handle raw values that already contain a Supabase storage object URL/path,
+    // even when they are not full absolute URLs.
+    const objectPathPattern = /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/;
+    const inlineObjectMatch = value.match(objectPathPattern);
+    if (inlineObjectMatch) {
+      const encodedBucket = inlineObjectMatch[1] || '';
+      const encodedObjectPathWithQuery = inlineObjectMatch[2] || '';
+      const encodedObjectPath = encodedObjectPathWithQuery.split('?')[0];
+      const decodedBucket = decodeURIComponent(encodedBucket);
+      const decodedPath = decodeURIComponent(encodedObjectPath);
+
+      if (bucket && decodedBucket && decodedBucket !== bucket) {
+        console.warn('Model reference bucket differs from configured bucket:', {
+          configuredBucket: bucket,
+          bucketFromReference: decodedBucket,
+          modelReference: value,
+        });
+      }
+
+      return stripBucketPrefix(decodedPath);
+    }
+
+    // Already a relative storage path.
+    if (!/^https?:\/\//i.test(value)) {
+      return stripBucketPrefix(value);
+    }
+
+    try {
+      const parsed = new URL(value);
+      const match = parsed.pathname.match(objectPathPattern);
+      if (!match) {
+        // Non-Supabase URL, keep as-is so the loader can still try to fetch it.
+        return value;
+      }
+
+      const encodedBucket = match[1] || '';
+      const encodedObjectPath = match[2] || '';
+      const bucketFromUrl = decodeURIComponent(encodedBucket);
+      const objectPath = decodeURIComponent(encodedObjectPath);
+
+      // Warn when bucket differs. We still return the path so loading can continue.
+      if (bucket && bucketFromUrl && bucketFromUrl !== bucket) {
+        console.warn('Model URL bucket differs from configured bucket:', {
+          configuredBucket: bucket,
+          bucketFromUrl,
+          modelReference: value,
+        });
+      }
+
+      return stripBucketPrefix(objectPath);
+    } catch (error) {
+      // If URL parsing fails, keep original value for fallback behavior.
+      return stripBucketPrefix(value);
+    }
+  },
+
+  // Build a list of model URLs to try in order.
+  // Why multiple candidates:
+  // - Old rows can hold full URLs, signed URLs, or bucket-prefixed paths.
+  // - Trying a few safe variants avoids hard-failing the entire restore.
+  async _buildModelUrlCandidates(modelReference) {
+    const client = await this._ensureClient();
+    const bucket = W3D.Supabase && W3D.Supabase.config ? W3D.Supabase.config.bucket : '';
+    if (!bucket) {
+      throw new Error('Supabase storage bucket is not configured.');
+    }
+
+    const rawValue = modelReference ? String(modelReference).trim() : '';
+    const normalizedPath = this._normalizeStoragePath(rawValue);
+    const candidates = [];
+
+    const pushUnique = (url) => {
+      if (!url) return;
+      if (!candidates.includes(url)) {
+        candidates.push(url);
+      }
+    };
+
+    // If database already stores a direct URL, keep it as fallback candidate.
+    if (/^https?:\/\//i.test(rawValue)) {
+      pushUnique(rawValue);
+    }
+
+    if (normalizedPath && !/^https?:\/\//i.test(normalizedPath)) {
+      const storageRef = client.storage.from(bucket);
+
+      // 1) Signed URL (works for private buckets).
+      const { data: signedData, error: signedError } = await storageRef.createSignedUrl(normalizedPath, 60 * 60);
+      if (!signedError && signedData && signedData.signedUrl) {
+        pushUnique(signedData.signedUrl);
+      }
+
+      // 2) Public URL (works for public buckets).
+      const { data: publicData } = storageRef.getPublicUrl(normalizedPath);
+      if (publicData && publicData.publicUrl) {
+        pushUnique(publicData.publicUrl);
+      }
+    } else if (/^https?:\/\//i.test(normalizedPath)) {
+      pushUnique(normalizedPath);
+    }
+
+    if (candidates.length === 0) {
+      throw new Error(`Could not create a model URL for reference: ${rawValue || '(empty)'}.`);
+    }
+
+    return {
+      normalizedPath,
+      urls: candidates,
+    };
+  },
+
   // Only remote-storage models should become machine placements in the database.
   // Static floor plans and locally uploaded temporary files are not part of the machines table.
   _getPersistableObjects() {
@@ -180,19 +314,29 @@ W3D.Database = {
       throw new Error('Supabase storage bucket is not configured.');
     }
 
+    const normalizedPath = this._normalizeStoragePath(storagePath);
+    if (!normalizedPath) {
+      throw new Error('Model storage path is empty.');
+    }
+
+    // External non-Supabase URLs can still be loaded directly.
+    if (/^https?:\/\//i.test(normalizedPath)) {
+      return normalizedPath;
+    }
+
     const storageRef = client.storage.from(bucket);
 
-    const { data: signedData, error: signedError } = await storageRef.createSignedUrl(storagePath, 60 * 60);
+    const { data: signedData, error: signedError } = await storageRef.createSignedUrl(normalizedPath, 60 * 60);
     if (!signedError && signedData && signedData.signedUrl) {
       return signedData.signedUrl;
     }
 
-    const { data: publicData } = storageRef.getPublicUrl(storagePath);
+    const { data: publicData } = storageRef.getPublicUrl(normalizedPath);
     if (publicData && publicData.publicUrl) {
       return publicData.publicUrl;
     }
 
-    throw new Error((signedError && signedError.message) || `Could not create a storage URL for ${storagePath}.`);
+    throw new Error((signedError && signedError.message) || `Could not create a storage URL for ${normalizedPath}.`);
   },
 
   // Read all machine types and index them by storage path.
@@ -208,9 +352,15 @@ W3D.Database = {
 
     const machineTypesByStoragePath = new Map();
     (data || []).forEach(row => {
-      const storagePath = row[this.columns.machineTypeModelPath];
-      if (storagePath) {
-        machineTypesByStoragePath.set(storagePath, row);
+      const rawStoragePath = row[this.columns.machineTypeModelPath];
+      const normalizedStoragePath = this._normalizeStoragePath(rawStoragePath);
+
+      if (rawStoragePath) {
+        machineTypesByStoragePath.set(rawStoragePath, row);
+      }
+
+      if (normalizedStoragePath) {
+        machineTypesByStoragePath.set(normalizedStoragePath, row);
       }
     });
 
@@ -221,11 +371,12 @@ W3D.Database = {
   // If the type is missing, we create it automatically so Save keeps working for new models.
   async _ensureMachineType(client, machineTypesByStoragePath, objectEntry) {
     const storagePath = objectEntry && objectEntry.props ? objectEntry.props.storagePath : '';
+    const normalizedStoragePath = this._normalizeStoragePath(storagePath);
     if (!storagePath) {
       throw new Error(`Object "${objectEntry && objectEntry.name ? objectEntry.name : 'unknown'}" has no storage path.`);
     }
 
-    const existingType = machineTypesByStoragePath.get(storagePath);
+    const existingType = machineTypesByStoragePath.get(normalizedStoragePath) || machineTypesByStoragePath.get(storagePath);
     if (existingType) {
       objectEntry.props.machineTypeId = existingType[this.columns.machineTypeId];
       objectEntry.props.machineTypeLinkId = existingType[this.columns.machineTypeLinkForeignKey] || null;
@@ -234,7 +385,7 @@ W3D.Database = {
 
     const payload = {
       [this.columns.machineTypeName]: objectEntry.name,
-      [this.columns.machineTypeModelPath]: storagePath,
+      [this.columns.machineTypeModelPath]: normalizedStoragePath || storagePath,
     };
 
     const { data, error } = await client
@@ -248,6 +399,9 @@ W3D.Database = {
     }
 
     machineTypesByStoragePath.set(storagePath, data);
+    if (normalizedStoragePath) {
+      machineTypesByStoragePath.set(normalizedStoragePath, data);
+    }
     objectEntry.props.machineTypeId = data[this.columns.machineTypeId];
     objectEntry.props.machineTypeLinkId = data[this.columns.machineTypeLinkForeignKey] || null;
     return data[this.columns.machineTypeId];
@@ -404,6 +558,7 @@ W3D.Database = {
       }
 
       let loadedCount = 0;
+      let skippedCount = 0;
 
       for (const machineRow of machineRows) {
         const machineTypeId = this._readRowValue(
@@ -418,40 +573,73 @@ W3D.Database = {
           continue;
         }
 
-        const storagePath = machineTypeRow[this.columns.machineTypeModelPath];
-        if (!storagePath) {
+        const modelReference = machineTypeRow[this.columns.machineTypeModelPath];
+        if (!modelReference) {
           console.warn('Skipping machine type because model path is missing:', machineTypeRow);
+          skippedCount += 1;
           continue;
         }
 
-        const modelUrl = await this._buildModelUrl(storagePath);
-        await W3D.Factory.loadRemoteGLTF(
-          modelUrl,
-          machineTypeRow[this.columns.machineTypeName] || 'Saved Machine',
-          {
-            storagePath,
-            machineId: machineRow[this.columns.machineId] || null,
-            machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
-            machineTypeLinkId: machineTypeRow[this.columns.machineTypeLinkForeignKey] || null,
-            positionX: this._toNumber(
-              this._readRowValue(machineRow, this.columns.machinePositionX, this.readColumns.machinePositionX)
-            ),
-            positionZ: this._toNumber(
-              this._readRowValue(machineRow, this.columns.machinePositionZ, this.readColumns.machinePositionZ)
-            ),
-            rotationY: this._toNumber(
-              this._readRowValue(machineRow, this.columns.machineRotationY, this.readColumns.machineRotationY)
-            ),
-            createdFromDatabase: true,
-          }
-        );
+        const modelCandidates = await this._buildModelUrlCandidates(modelReference);
+        let loaded = false;
+        let lastLoadError = null;
 
-        loadedCount += 1;
+        for (const candidateUrl of modelCandidates.urls) {
+          try {
+            await W3D.Factory.loadRemoteGLTF(
+              candidateUrl,
+              machineTypeRow[this.columns.machineTypeName] || 'Saved Machine',
+              {
+                storagePath: modelCandidates.normalizedPath || this._normalizeStoragePath(modelReference),
+                machineId: machineRow[this.columns.machineId] || null,
+                machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
+                machineTypeLinkId: machineTypeRow[this.columns.machineTypeLinkForeignKey] || null,
+                positionX: this._toNumber(
+                  this._readRowValue(machineRow, this.columns.machinePositionX, this.readColumns.machinePositionX)
+                ),
+                positionZ: this._toNumber(
+                  this._readRowValue(machineRow, this.columns.machinePositionZ, this.readColumns.machinePositionZ)
+                ),
+                rotationY: this._toNumber(
+                  this._readRowValue(machineRow, this.columns.machineRotationY, this.readColumns.machineRotationY)
+                ),
+                createdFromDatabase: true,
+              }
+            );
+
+            loaded = true;
+            loadedCount += 1;
+            break;
+          } catch (loadError) {
+            lastLoadError = loadError;
+            console.warn('Model load attempt failed, trying next candidate URL:', {
+              machineId: machineRow[this.columns.machineId] || null,
+              machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
+              modelReference,
+              candidateUrl,
+              error: loadError,
+            });
+          }
+        }
+
+        if (!loaded) {
+          skippedCount += 1;
+          console.warn('Skipping machine because model could not be loaded from any candidate URL:', {
+            machineRow,
+            machineTypeRow,
+            modelReference,
+            lastLoadError,
+          });
+        }
       }
 
       this._hasLoadedPlacements = true;
       this.clearSceneDirty();
-      this.setStatus(`Loaded ${loadedCount} saved machine placements.`);
+      if (skippedCount > 0) {
+        this.setStatus(`Loaded ${loadedCount} saved machine placements (${skippedCount} skipped).`, true);
+      } else {
+        this.setStatus(`Loaded ${loadedCount} saved machine placements.`);
+      }
     } catch (error) {
       console.error('Database load error:', error);
       this.setStatus(error.message || 'Could not restore saved machines.', true);
