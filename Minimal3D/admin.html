@@ -18,15 +18,19 @@
       <div class="tb-left">
         <span class="tb-logo">⬡ Minimal3D</span>
         <span class="tb-scene-name">Admin Mode</span>
-      </div>      <div class="tb-center">
+      </div>
+      <div class="tb-center">
         <div class="view-toggle">
           <button id="btn-view-3d" class="view-btn active" type="button">3D View</button>
           <button id="btn-view-top" class="view-btn" type="button">Top View</button>
         </div>
-      </div>      <div class="tb-right">
+      </div>
+      <div class="tb-right">
         <span class="tb-badge">Admin</span>
         <a class="tb-btn" href="index.html">Viewer</a>
         <a class="tb-btn active" href="admin.html">Admin</a>
+        <button id="btn-save-layout" class="tb-btn tb-btn-save" type="button" disabled>Save</button>
+        <span id="db-status" class="db-status" role="status" aria-live="polite"></span>
         <button id="btn-auth-logout" class="tb-btn" type="button">Logout</button>
       </div>
     </header>
@@ -55,6 +59,11 @@
 
     <!-- Admin workspace: fullscreen 3D canvas + overlay taskbar + slide-in drawer -->
     <div id="admin-panel" class="admin-workspace is-hidden">
+
+      <!-- Red warning badge shown when the canvas changed after the last save. -->
+      <div id="unsaved-alert" class="unsaved-alert is-hidden" role="status" aria-live="polite">
+        Unsaved changes
+      </div>
 
       <!-- 3D scene fills the entire workspace -->
       <canvas id="three-canvas"></canvas>
@@ -155,6 +164,10 @@
             <span class="task-icon">↻</span>
             <span class="task-label">Rotate</span>
           </button>
+          <button id="btn-tool-delete" class="task-btn danger" type="button" title="Delete (Delete)" disabled>
+            <span class="task-icon">✕</span>
+            <span class="task-label">Delete</span>
+          </button>
         </div>
       </nav>
 
@@ -182,6 +195,7 @@
   <script src="js/objects/factory.js"></script>
   <script src="js/tools/transform.js"></script>
   <script src="supabase.js"></script>
+  <script src="js/core/database.js"></script>
   <script src="auth.js"></script>
   <script src="js/core/main.js"></script>
 </body>

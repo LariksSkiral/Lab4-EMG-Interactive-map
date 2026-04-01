@@ -14,5 +14,23 @@ const W3D = {
   // Array to store all 3D objects in the scene
   objects: [],
   // Function to generate unique IDs for objects
-  genId: function() { return 'obj_' + Math.random().toString(36).slice(2, 7); }
+  genId: function() { return 'obj_' + Math.random().toString(36).slice(2, 7); },
+
+  // Remove one tracked object from both the Three.js scene and our shared array.
+  // Why this helper exists:
+  // - Multiple features need safe deletion logic (toolbar delete, database refresh, etc.).
+  // - Keeping it here means every part of the app removes objects the same way.
+  removeObject: function(objectToRemove) {
+    // Ignore empty calls so other code can call this defensively.
+    if (!objectToRemove) return false;
+
+    // Remove the 3D mesh/group from the scene graph first.
+    if (objectToRemove.mesh && objectToRemove.mesh.parent) {
+      objectToRemove.mesh.parent.remove(objectToRemove.mesh);
+    }
+
+    // Remove the tracked entry from the global objects array.
+    this.objects = this.objects.filter(entry => entry !== objectToRemove);
+    return true;
+  }
 };

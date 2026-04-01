@@ -10,7 +10,10 @@ W3D.init = async function() {
   // Step 1b: Initialise transform tools (select, move, rotate) if available.
   if (W3D.Transform) W3D.Transform.init();
 
-  // Step 1c: Wire view-toggle buttons in the topbar.
+  // Step 1c: Prepare database UI early so buttons can be enabled/disabled later.
+  if (W3D.Database) W3D.Database.setupUI();
+
+  // Step 1d: Wire view-toggle buttons in the topbar.
   const btn3d  = document.getElementById('btn-view-3d');
   const btnTop = document.getElementById('btn-view-top');
   if (btn3d)  btn3d.addEventListener('click',  () => W3D.setViewMode && W3D.setViewMode('3d'));
@@ -33,14 +36,15 @@ W3D.init = async function() {
   const adminPanel = document.getElementById('admin-panel');
   const hasAdminAuthPanels = Boolean(loginPanel && adminPanel);
   const hasStorageControls = Boolean(document.getElementById('sb-upload-btn'));
+  const hasDatabaseFeatures = Boolean(W3D.Database);
 
   // Step 4: Set up upload/list/load controls before init so status errors can be shown.
   if (W3D.Supabase && hasStorageControls) {
     W3D.Supabase.setupUI();
   }
 
-  // Step 5: Connect Supabase if this page needs auth or storage functionality.
-  if (W3D.Supabase && (hasAdminAuthPanels || hasStorageControls)) {
+  // Step 5: Connect Supabase if this page needs auth, storage, or database reads/writes.
+  if (W3D.Supabase && (hasAdminAuthPanels || hasStorageControls || hasDatabaseFeatures)) {
     await W3D.Supabase.initializeFromConfig();
   }
 
@@ -56,16 +60,58 @@ W3D.init = async function() {
     const showLoginPanel = () => {
       loginPanel.classList.remove('is-hidden');
       adminPanel.classList.add('is-hidden');
+      if (W3D.Database) {
+        W3D.Database.setControlsDisabled(true);
+      }
     };
 
-    const showAdminPanel = () => {
+    const showAdminPanel = async () => {
       loginPanel.classList.add('is-hidden');
       adminPanel.classList.remove('is-hidden');
       if (W3D.Supabase && hasStorageControls) {
         W3D.Supabase.setControlsDisabled(false);
         W3D.Supabase.listFilesAndPopulateDropdown();
       }
+      if (W3D.Database) {
+        W3D.Database.setControlsDisabled(false);
+        await W3D.Database.loadSavedMachinesIntoScene();
+      }
     };
+
+    if (loginButton) {
+      loginButton.addEventListener('click', async () => {
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+        const { error: loginError } = await W3D.Auth.login(email, password);
+        if (loginError && authError) {
+          authError.textContent = loginError.message || 'Login failed.';
+        }
+      });
+    }
+
+    if (registerButton) {
+      registerButton.addEventListener('click', async () => {
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+        const { error: registerError } = await W3D.Auth.register(email, password);
+        if (registerError && authError) {
+          authError.textContent = registerError.message || 'Register failed.';
+          return;
+        }
+        if (authError) {
+          authError.textContent = 'Registration successful. If email confirmation is enabled, verify your email before login.';
+        }
+      });
+    }
+
+    if (logoutButton) {
+      logoutButton.addEventListener('click', async () => {
+        const { error: logoutError } = await W3D.Auth.logout();
+        if (logoutError && authError) {
+          authError.textContent = logoutError.message || 'Logout failed.';
+        }
+      });
+    }
 
     // ── Drawer toggle (uploader sidebar) ────────────────────────────────────
     const uploaderDrawer = document.getElementById('uploader-drawer');
@@ -124,46 +170,16 @@ W3D.init = async function() {
         if (authError) authError.textContent = error.message || 'Could not check current user.';
         showLoginPanel();
       } else if (data && data.user) {
-        showAdminPanel();
+        await showAdminPanel();
       } else {
         showLoginPanel();
       }
     }
 
-    if (loginButton) {
-      loginButton.addEventListener('click', async () => {
-        const email = emailInput ? emailInput.value.trim() : '';
-        const password = passwordInput ? passwordInput.value : '';
-        const { error: loginError } = await W3D.Auth.login(email, password);
-        if (loginError && authError) {
-          authError.textContent = loginError.message || 'Login failed.';
-        }
-      });
-    }
-
-    if (registerButton) {
-      registerButton.addEventListener('click', async () => {
-        const email = emailInput ? emailInput.value.trim() : '';
-        const password = passwordInput ? passwordInput.value : '';
-        const { error: registerError } = await W3D.Auth.register(email, password);
-        if (registerError && authError) {
-          authError.textContent = registerError.message || 'Register failed.';
-          return;
-        }
-        if (authError) {
-          authError.textContent = 'Registration successful. If email confirmation is enabled, verify your email before login.';
-        }
-      });
-    }
-
-    if (logoutButton) {
-      logoutButton.addEventListener('click', async () => {
-        const { error: logoutError } = await W3D.Auth.logout();
-        if (logoutError && authError) {
-          authError.textContent = logoutError.message || 'Logout failed.';
-        }
-      });
-    }
+  } else if (W3D.Database && W3D.Supabase && W3D.Supabase.client) {
+    // Viewer mode has no auth panels, so we restore saved machines immediately.
+    W3D.Database.setControlsDisabled(true);
+    await W3D.Database.loadSavedMachinesIntoScene();
   }
 };
 

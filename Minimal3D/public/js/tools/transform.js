@@ -1,7 +1,7 @@
-/* Transform tool – Blender-style move & rotate for loaded models.
+/* Transform tool – Blender-style move, rotate, and delete for loaded models.
    Move is locked to the XZ floor plane (horizontal).
    Rotate is locked to the Y axis (vertical spin).
-   Keyboard: G = grab/move, R = rotate, Esc = deselect, Delete = deselect. */
+  Keyboard: G = grab/move, R = rotate, Esc = deselect, Delete = remove selected object. */
 
 W3D.Transform = {
   // Current tool mode: null | 'select' | 'move' | 'rotate'
@@ -77,6 +77,11 @@ W3D.Transform = {
         this._moveProxy.position.copy(this.selected.mesh.position);
         this._moveProxy.rotation.set(0, 0, 0);
       }
+
+      if (W3D.Database && typeof W3D.Database.markSceneDirty === 'function') {
+        W3D.Database.markSceneDirty();
+      }
+
       this._updateInfoStrip();
     });
 
@@ -95,9 +100,11 @@ W3D.Transform = {
   _bindButtons() {
     const btnMove   = document.getElementById('btn-tool-move');
     const btnRotate = document.getElementById('btn-tool-rotate');
+    const btnDelete = document.getElementById('btn-tool-delete');
 
     if (btnMove)   btnMove.addEventListener('click',   () => this.setMode('move'));
     if (btnRotate) btnRotate.addEventListener('click', () => this.setMode('rotate'));
+    if (btnDelete) btnDelete.addEventListener('click', () => this.deleteSelected());
 
     this._updateButtons();
   },
@@ -105,6 +112,7 @@ W3D.Transform = {
   _updateButtons() {
     const btnMove   = document.getElementById('btn-tool-move');
     const btnRotate = document.getElementById('btn-tool-rotate');
+    const btnDelete = document.getElementById('btn-tool-delete');
     const hasSelection = Boolean(this.selected);
 
     if (btnMove) {
@@ -114,6 +122,9 @@ W3D.Transform = {
     if (btnRotate) {
       btnRotate.disabled = !hasSelection;
       btnRotate.classList.toggle('active', this.mode === 'rotate');
+    }
+    if (btnDelete) {
+      btnDelete.disabled = !hasSelection;
     }
   },
 
@@ -171,6 +182,29 @@ W3D.Transform = {
     this._clearHighlight();
     this._updateButtons();
     this._updateInfoStrip();
+  },
+
+  // Remove the currently selected object from the canvas.
+  // Important: this only changes the editor scene immediately.
+  // The user still needs to click Save so the database matches the canvas again.
+  deleteSelected() {
+    if (!this.selected) return false;
+
+    const objectToDelete = this.selected;
+    this.deselect();
+    W3D.removeObject(objectToDelete);
+
+    if (W3D.Database && typeof W3D.Database.markSceneDirty === 'function') {
+      W3D.Database.markSceneDirty();
+    }
+
+    if (W3D.Database && typeof W3D.Database.setStatus === 'function') {
+      W3D.Database.setStatus(
+        `${objectToDelete.name} was removed from the canvas. Click Save to store this deletion in the database.`
+      );
+    }
+
+    return true;
   },
 
   /* ── Highlight (Xander-style emissive) ─────────────────────────────────── */
@@ -273,6 +307,9 @@ W3D.Transform = {
     } else if (key === 'r') {
       e.preventDefault();
       this.setMode('rotate');
+    } else if (key === 'delete' || key === 'backspace') {
+      e.preventDefault();
+      this.deleteSelected();
     } else if (key === 'escape') {
       e.preventDefault();
       this.deselect();

@@ -90,6 +90,7 @@ W3D.Supabase = {
 
 		// Toggle error styling class (is-error gives red background in new CSS).
 		this.ui.status.classList.toggle('is-error', Boolean(isError));
+		this.ui.status.classList.toggle('is-ok', !isError && Boolean(message));
 	},
 
 	// Enable or disable the storage action buttons.
@@ -518,6 +519,12 @@ W3D.Supabase = {
 		this.setStatus(`Loading ${fileName} into the scene...`);
 
 		// Use existing Three.js factory method to load model from URL.
-		W3D.Factory.loadRemoteGLTF(modelUrl, fileName);
+		try {
+			await W3D.Factory.loadRemoteGLTF(modelUrl, fileName, { storagePath: filePath });
+			this.setStatus(`${fileName} is now in the scene. Move it into place, then click Save placements.`);
+		} catch (loadError) {
+			console.error('Supabase model load error:', loadError);
+			this.setStatus(`Could not load ${fileName}: ${loadError.message || 'unknown error'}`, true);
+		}
 	},
 };
