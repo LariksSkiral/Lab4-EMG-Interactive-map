@@ -14,43 +14,28 @@
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════════════
-       LOGIN SCREEN
-  ═══════════════════════════════════════════ -->
-  <div id="login-screen" class="screen active">
-    <div class="login-bg"><div class="login-grid"></div></div>
-    <div class="login-wrap">
-      <div class="login-logo">
-        <div class="logo-hex">⬡</div>
-        <h1>Workspace<span class="logo-accent">3D</span></h1>
-        <p class="logo-sub">Architectural Map Builder</p>
+  <!-- LOADING SCREEN -->
+  <div id="loading-screen" class="screen active">
+    <div class="loader-bg"><div class="loader-grid"></div></div>
+    <div class="loader-body">
+      <div class="loader-hex-wrap">
+        <svg class="loader-hex-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <polygon class="hex-bg"   points="50,4 93,27.5 93,72.5 50,96 7,72.5 7,27.5"/>
+          <circle  class="hex-ring" cx="50" cy="50" r="44"/>
+          <circle  class="hex-ring2" cx="50" cy="50" r="34"/>
+        </svg>
+        <div class="loader-icon">⬡</div>
       </div>
-      <div class="login-cards">
-        <div class="role-card" id="guest-btn">
-          <div class="role-icon">👁</div>
-          <h2>Guest</h2>
-          <p>View and navigate the 3D scene in read-only mode.</p>
-          <button class="btn-role">Enter as Guest →</button>
-        </div>
-        <div class="role-divider">or</div>
-        <div class="role-card admin-card">
-          <div class="role-icon">⚙</div>
-          <h2>Admin</h2>
-          <p>Full access — create, edit, and manage all objects.</p>
-          <div class="admin-fields">
-            <input type="text"     id="inp-user" placeholder="Username" autocomplete="off"/>
-            <input type="password" id="inp-pass" placeholder="Password"/>
-            <button class="btn-role admin" id="admin-login-btn">Login →</button>
-            <p class="login-err" id="login-err"></p>
-          </div>
-        </div>
+      <h1 class="loader-title">Workspace<span class="loader-accent">3D</span></h1>
+      <p class="loader-sub">Architectural Map Builder</p>
+      <div class="loader-bar-wrap">
+        <div class="loader-bar" id="loader-bar"></div>
       </div>
+      <p class="loader-status" id="loader-status">Initialising scene…</p>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
-       APP SCREEN
-  ═══════════════════════════════════════════ -->
+  <!-- APP SCREEN -->
   <div id="app-screen" class="screen">
 
     <!-- TOP BAR -->
@@ -58,24 +43,28 @@
       <div class="tb-left">
         <span class="tb-logo">⬡ Workspace3D</span>
         <span id="scene-name" class="tb-scene-name">Untitled Scene</span>
-        <button class="tb-btn admin-only" id="btn-rename" title="Rename Scene">✏</button>
+        <button class="tb-btn admin-only" id="btn-rename"       title="Rename Scene">✏</button>
+        <button class="tb-btn admin-only" id="btn-set-default"  title="Save current scene as the startup default">⭐ Set Default</button>
+        <button class="tb-btn admin-only" id="btn-floorplan-ai" title="Generate walls from floorplan image (AI)">🗺 Floorplan AI</button>
       </div>
       <div class="tb-center">
-        <button class="tb-btn active" id="btn-view-persp" title="Perspective View">3D Persp</button>
-        <button class="tb-btn" id="btn-view-top" title="Top-Down View">Top</button>
-        <div class="tb-sep"></div>
-        <button class="tb-btn" id="btn-grid" title="Toggle Grid (G)">Grid</button>
-        <button class="tb-btn" id="btn-snap" title="Toggle Snap">Snap</button>
+        <button class="tb-btn active" id="btn-view-persp" title="Perspective View">3D</button>
+        <button class="tb-btn"        id="btn-view-top"   title="Top-Down View">Top</button>
+        <div class="tb-sep admin-only"></div>
+        <button class="tb-btn admin-only" id="btn-grid" title="Toggle Grid (G)">Grid</button>
+        <button class="tb-btn admin-only" id="btn-snap" title="Toggle Snap">Snap</button>
         <div class="tb-sep"></div>
         <button class="tb-btn admin-only" id="btn-undo" title="Undo Ctrl+Z">↩ Undo</button>
         <button class="tb-btn admin-only" id="btn-redo" title="Redo Ctrl+Y">↪ Redo</button>
       </div>
       <div class="tb-right">
-        <span id="user-badge" class="user-badge">GUEST</span>
-        <button class="tb-btn admin-only" id="btn-save" title="Save Scene">💾 Save</button>
-        <button class="tb-btn admin-only" id="btn-load" title="Load Scene">📂 Load</button>
-        <input type="file" id="inp-load-file" accept=".w3d" style="display:none"/>
-        <button class="tb-btn" id="btn-exit">⏏ Exit</button>
+        <button class="tb-btn tb-login-btn" id="btn-show-login">⚙ Admin Login</button>
+        <span   id="user-badge" class="user-badge admin-only">ADMIN</span>
+        <button class="tb-btn admin-only" id="btn-save"  title="Save Scene">💾 Save</button>
+        <button class="tb-btn admin-only" id="btn-load"  title="Load Scene">📂 Load</button>
+        <input  type="file" id="inp-load-file"     accept=".w3d"                     style="display:none"/>
+        <input  type="file" id="inp-floorplan-img" accept="image/*"                  style="display:none"/>
+        <button class="tb-btn admin-only tb-logout-btn" id="btn-logout">Log out</button>
       </div>
     </header>
 
@@ -85,16 +74,15 @@
       <!-- LEFT SIDEBAR (admin only) -->
       <aside id="sidebar-left" class="admin-only">
 
-        <!-- SELECT / TOOLS tab -->
         <div class="stab" data-tab="tools">
           <div class="stab-header" data-toggle="tools">
             <span class="stab-icon">↖</span><span>Tools</span><span class="stab-arrow">▾</span>
           </div>
           <div class="stab-body" id="tab-tools">
             <div class="tool-group">
-              <button class="tool-btn active" id="tool-select"     data-tool="select">↖ Select / Move</button>
-              <button class="tool-btn"        id="tool-rotate"     data-tool="rotate">↻ Rotate</button>
-              <button class="tool-btn"        id="tool-scale"      data-tool="scale">⤡ Scale</button>
+              <button class="tool-btn active" id="tool-select" data-tool="select">↖ Select / Move</button>
+              <button class="tool-btn"        id="tool-rotate" data-tool="rotate">↻ Rotate</button>
+              <button class="tool-btn"        id="tool-scale"  data-tool="scale">⤡ Scale</button>
             </div>
             <div class="tool-group">
               <label class="field-label">Transform Space</label>
@@ -114,51 +102,30 @@
           </div>
         </div>
 
-        <!-- CREATE tab -->
         <div class="stab" data-tab="create">
           <div class="stab-header" data-toggle="create">
             <span class="stab-icon">＋</span><span>Create</span><span class="stab-arrow">▾</span>
           </div>
           <div class="stab-body" id="tab-create">
-
             <div class="create-section">🧱 Architecture</div>
             <button class="create-btn" id="c-wall">Wall (draw)</button>
             <button class="create-btn" id="c-floor">Floor Plane</button>
-            <button class="create-btn" id="c-ceiling">Ceiling</button>
             <button class="create-btn" id="c-door">Door Frame</button>
-            <button class="create-btn" id="c-window">Window Frame</button>
-            <button class="create-btn" id="c-staircase">Staircase</button>
-            <button class="create-btn" id="c-column">Column</button>
-
-            <div class="create-section">📦 Primitives</div>
-            <button class="create-btn" id="c-box">Box</button>
-            <button class="create-btn" id="c-cylinder">Cylinder</button>
-            <button class="create-btn" id="c-sphere">Sphere</button>
-            <button class="create-btn" id="c-cone">Cone</button>
-            <button class="create-btn" id="c-plane">Plane</button>
-
             <div class="create-section">✏️ Lines &amp; Zones</div>
             <button class="create-btn" id="c-floorline">Floor Line (draw)</button>
             <button class="create-btn" id="c-zone">Zone / Room (draw)</button>
-            <button class="create-btn" id="c-arrow">Direction Arrow</button>
-
             <div class="create-section">📌 Info &amp; Labels</div>
             <button class="create-btn" id="c-infopoint">Info Point</button>
             <button class="create-btn" id="c-label3d">3D Label</button>
             <button class="create-btn" id="c-imageplane">Image Plane</button>
-
             <div class="create-section">📐 3D Models</div>
             <button class="create-btn" id="c-glb">Upload .GLB / .GLTF</button>
             <input type="file" id="inp-glb" accept=".glb,.gltf" style="display:none"/>
-
             <div class="create-section">💡 Lights</div>
             <button class="create-btn" id="c-point-light">Point Light</button>
-            <button class="create-btn" id="c-spot-light">Spot Light</button>
-
           </div>
         </div>
 
-        <!-- SCENE TREE tab -->
         <div class="stab" data-tab="scene">
           <div class="stab-header" data-toggle="scene">
             <span class="stab-icon">≡</span><span>Scene</span><span class="stab-arrow">▾</span>
@@ -179,7 +146,6 @@
           <span id="vp-cam-label">Perspective</span>
           <span id="vp-obj-count">0 objects</span>
         </div>
-        <!-- Context menu -->
         <div id="ctx-menu" class="ctx-menu hidden">
           <div class="ctx-item" id="ctx-duplicate">⧉ Duplicate</div>
           <div class="ctx-item" id="ctx-focus">⊙ Focus Camera</div>
@@ -203,12 +169,21 @@
         </div>
       </aside>
 
-    </div><!-- #main-area -->
-  </div><!-- #app-screen -->
+    </div>
+  </div>
 
-  <!-- ═══════════════════════════════════════════
-       OVERLAYS  (info popup, tooltip, modal)
-  ═══════════════════════════════════════════ -->
+  <!-- ADMIN LOGIN FLYOUT -->
+  <div id="login-flyout" class="login-flyout hidden">
+    <div class="flyout-card">
+      <div class="flyout-title">⚙ Admin Login</div>
+      <input type="text"     id="inp-user" placeholder="Username" autocomplete="off" class="flyout-input"/>
+      <input type="password" id="inp-pass" placeholder="Password"                   class="flyout-input"/>
+      <button class="flyout-btn" id="admin-login-btn">Login →</button>
+      <p class="login-err" id="login-err"></p>
+    </div>
+  </div>
+
+  <!-- INFO POPUP -->
   <div id="info-popup" class="overlay-popup hidden">
     <div class="popup-card">
       <button id="popup-close" class="popup-close">✕</button>
@@ -226,16 +201,11 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
-       SCRIPTS  — load order matters
-  ═══════════════════════════════════════════ -->
-  <!-- Three.js core + extras from CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
-  <!-- App modules — order: state → renderer → objects → tools → ui → main -->
   <script src="js/core/state.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/core/history.js"></script>

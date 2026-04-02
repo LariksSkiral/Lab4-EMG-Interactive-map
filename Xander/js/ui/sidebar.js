@@ -75,23 +75,12 @@ W3D.Sidebar = {
     /* Architecture */
     document.getElementById('c-wall')?.addEventListener('click', () => { if (W3D.isAdmin) D.start('wall'); });
     document.getElementById('c-floor')?.addEventListener('click', simple(() => F.floor()));
-    document.getElementById('c-ceiling')?.addEventListener('click', simple(() => F.ceiling()));
     document.getElementById('c-door')?.addEventListener('click', simple(() => F.door()));
-    document.getElementById('c-window')?.addEventListener('click', simple(() => F.window()));
-    document.getElementById('c-staircase')?.addEventListener('click', simple(() => F.staircase()));
-    document.getElementById('c-column')?.addEventListener('click', simple(() => F.column()));
 
-    /* Primitives */
-    document.getElementById('c-box')?.addEventListener('click', simple(() => F.box()));
-    document.getElementById('c-cylinder')?.addEventListener('click', simple(() => F.cylinder()));
-    document.getElementById('c-sphere')?.addEventListener('click', simple(() => F.sphere()));
-    document.getElementById('c-cone')?.addEventListener('click', simple(() => F.cone()));
-    document.getElementById('c-plane')?.addEventListener('click', simple(() => F.plane()));
 
     /* Lines & Zones */
     document.getElementById('c-floorline')?.addEventListener('click', () => { if (W3D.isAdmin) D.start('floorline'); });
     document.getElementById('c-zone')?.addEventListener('click', () => { if (W3D.isAdmin) D.start('zone'); });
-    document.getElementById('c-arrow')?.addEventListener('click', simple(() => F.arrow()));
 
     /* Info & Labels */
     document.getElementById('c-infopoint')?.addEventListener('click', () => {
@@ -124,11 +113,6 @@ W3D.Sidebar = {
     document.getElementById('c-point-light')?.addEventListener('click', () => {
       if (!W3D.isAdmin) return;
       const o = F.pointLight();
-      W3D.Select.pick(o);
-    });
-    document.getElementById('c-spot-light')?.addEventListener('click', () => {
-      if (!W3D.isAdmin) return;
-      const o = F.spotLight();
       W3D.Select.pick(o);
     });
   },

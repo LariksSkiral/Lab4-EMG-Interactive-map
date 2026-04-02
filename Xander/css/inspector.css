@@ -3,7 +3,7 @@
 ═══════════════════════════════════════════════ */
 
 #sidebar-right {
-  width: 268px; flex-shrink: 0;
+  width: 280px; flex-shrink: 0;
   background: var(--bg-panel);
   border-left: 1.5px solid var(--border);
   display: flex; flex-direction: column;
@@ -35,8 +35,10 @@
 }
 
 #inspector-body {
-  flex: 1; overflow-y: auto; padding: 10px;
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 8px 24px 10px;
   display: flex; flex-direction: column; gap: 8px;
+  min-height: 0;
 }
 
 /* ── Empty state ── */
@@ -76,28 +78,31 @@
 /* ── Field rows ── */
 .insp-row {
   display: flex; align-items: center; gap: 6px;
+  min-width: 0; overflow: hidden;
 }
 .insp-lbl {
   width: 58px; flex-shrink: 0;
   font-size: 11px; font-weight: 500; color: var(--text-2);
 }
 .insp-input {
-  flex: 1; background: var(--bg-input);
+  flex: 1; min-width: 0; background: var(--bg-input);
   border: 1.5px solid var(--border);
   color: var(--text-0); padding: 5px 8px;
   border-radius: var(--radius-sm);
   font-size: 11px; font-family: var(--font-ui);
   outline: none; transition: border-color var(--transition);
+  max-width: 100%;
 }
 .insp-input:focus { border-color: var(--accent); }
 .insp-input[type=color] { padding: 2px 3px; height: 28px; cursor: pointer; }
 
 /* XYZ triple input */
-.insp-xyz { display: flex; gap: 3px; flex: 1; }
+.insp-xyz { display: flex; gap: 3px; flex: 1; min-width: 0; }
+.insp-xyz > div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .insp-xyz input {
-  flex: 1; min-width: 0;
+  width: 100%; min-width: 0;
   background: var(--bg-input); border: 1.5px solid var(--border);
-  color: var(--text-0); padding: 5px 4px;
+  color: var(--text-0); padding: 5px 2px;
   border-radius: var(--radius-sm); font-size: 11px;
   font-family: var(--font-mono); text-align: center; outline: none;
   transition: border-color var(--transition);
@@ -165,3 +170,14 @@ select.insp-input {
   padding: 0 2px; flex-shrink: 0; background: none; border: none;
 }
 .file-remove:hover { color: var(--red); }
+
+/* ── Unit labels (m) ── */
+.insp-unit {
+  font-size: 9px; color: var(--text-3); margin-left: 2px;
+  flex-shrink: 0; font-family: var(--font-mono);
+}
+.insp-scale-note {
+  font-size: 10px; color: var(--text-2); font-style: italic;
+  padding: 2px 0 4px; text-align: center;
+  border-bottom: 1px solid var(--border); margin-bottom: 4px;
+}

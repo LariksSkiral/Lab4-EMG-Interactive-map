@@ -10,7 +10,7 @@ W3D.Factory = {
 
   /* ── Shared helpers ─────────────────────────── */
 
-  _mat (color = '#8a9aaa', opts = {}) {
+  _mat (color = '#c8cdd2', opts = {}) {
     return new THREE.MeshLambertMaterial({
       color: new THREE.Color(color),
       side: THREE.DoubleSide,
@@ -36,7 +36,7 @@ W3D.Factory = {
      ARCHITECTURE
   ═══════════════════════════════════════════ */
 
-  wall ({ width = 4, height = 3, depth = 0.2, color = '#8a9aaa' } = {}) {
+  wall ({ width = 4, height = 3, depth = 0.2, color = '#c8cdd2' } = {}) {
     const geo  = new THREE.BoxGeometry(width, height, depth);
     const mesh = new THREE.Mesh(geo, this._mat(color));
     mesh.position.y = height / 2;
@@ -44,7 +44,7 @@ W3D.Factory = {
   },
 
   // Called directly by DrawTool after user draws start/end points
-  wallFromPoints (start, end, { height = 3, depth = 0.2, color = '#8a9aaa' } = {}) {
+  wallFromPoints (start, end, { height = 3, depth = 0.2, color = '#c8cdd2' } = {}) {
     const dx  = end.x - start.x;
     const dz  = end.z - start.z;
     const len = Math.sqrt(dx * dx + dz * dz);
@@ -56,23 +56,23 @@ W3D.Factory = {
     return this._register(mesh, 'wall', 'Wall', color, { width: len, height, depth, color });
   },
 
-  floor ({ width = 6, depth = 6, color = '#3e4a56' } = {}) {
+  floor ({ width = 6, depth = 6, color = '#d0d5da' } = {}) {
     const geo  = new THREE.BoxGeometry(width, 0.12, depth);
     const mesh = new THREE.Mesh(geo, this._mat(color));
     mesh.position.y = -0.06;
     return this._register(mesh, 'floor', 'Floor', color, { width, height: 0.12, depth, color });
   },
 
-  ceiling ({ width = 6, depth = 6, color = '#303840' } = {}) {
+  ceiling ({ width = 6, depth = 6, color = '#d8dde2' } = {}) {
     const geo  = new THREE.BoxGeometry(width, 0.12, depth);
     const mesh = new THREE.Mesh(geo, this._mat(color));
     mesh.position.y = 3;
     return this._register(mesh, 'ceiling', 'Ceiling', color, { width, height: 0.12, depth, color });
   },
 
-  door ({ width = 1, height = 2.2, depth = 0.1, color = '#7a5c3a' } = {}) {
+  door ({ width = 1, height = 2.2, depth = 0.1, color = '#c4a882' } = {}) {
     const group = new THREE.Group();
-    const frameMat = this._mat('#5a4030');
+    const frameMat = this._mat('#b09070');
     const doorMat  = this._mat(color);
 
     // Panels
@@ -92,9 +92,9 @@ W3D.Factory = {
     return this._register(group, 'door', 'Door Frame', color, { width, height, depth, color });
   },
 
-  window ({ width = 1.2, height = 1.2, depth = 0.1, color = '#88bbdd' } = {}) {
+  window ({ width = 1.2, height = 1.2, depth = 0.1, color = '#aad4ee' } = {}) {
     const group = new THREE.Group();
-    const frameMat = this._mat('#4a5060');
+    const frameMat = this._mat('#8a9aaa');
     const glassMat = new THREE.MeshLambertMaterial({
       color: new THREE.Color(color), transparent: true, opacity: 0.38, side: THREE.DoubleSide,
     });
@@ -115,7 +115,7 @@ W3D.Factory = {
     return this._register(group, 'window', 'Window Frame', color, { width, height, depth, color });
   },
 
-  staircase ({ steps = 8, stepW = 1.2, stepH = 0.18, stepD = 0.3, color = '#707880' } = {}) {
+  staircase ({ steps = 8, stepW = 1.2, stepH = 0.18, stepD = 0.3, color = '#b0b8c0' } = {}) {
     const group = new THREE.Group();
     const mat   = this._mat(color);
     for (let i = 0; i < steps; i++) {
@@ -127,7 +127,7 @@ W3D.Factory = {
     return this._register(group, 'staircase', 'Staircase', color, { steps, stepW, stepH, stepD, color });
   },
 
-  column ({ radius = 0.2, height = 3, color = '#909098' } = {}) {
+  column ({ radius = 0.2, height = 3, color = '#c0c0c8' } = {}) {
     const geo  = new THREE.CylinderGeometry(radius, radius * 1.15, height, 16);
     const mesh = new THREE.Mesh(geo, this._mat(color));
     mesh.position.y = height / 2;
@@ -138,13 +138,13 @@ W3D.Factory = {
      PRIMITIVES
   ═══════════════════════════════════════════ */
 
-  box ({ width = 1, height = 1, depth = 1, color = '#7a8fa8' } = {}) {
+  box ({ width = 1, height = 1, depth = 1, color = '#b4c2d0' } = {}) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), this._mat(color));
     mesh.position.y = height / 2;
     return this._register(mesh, 'box', 'Box', color, { width, height, depth, color });
   },
 
-  cylinder ({ radiusTop = 0.5, radiusBottom = 0.5, height = 1, color = '#7a8fa8' } = {}) {
+  cylinder ({ radiusTop = 0.5, radiusBottom = 0.5, height = 1, color = '#b4c2d0' } = {}) {
     const mesh = new THREE.Mesh(
       new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 32),
       this._mat(color)
@@ -153,7 +153,7 @@ W3D.Factory = {
     return this._register(mesh, 'cylinder', 'Cylinder', color, { radiusTop, radiusBottom, height, color });
   },
 
-  sphere ({ radius = 0.5, color = '#7a8fa8' } = {}) {
+  sphere ({ radius = 0.5, color = '#b4c2d0' } = {}) {
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(radius, 32, 32),
       this._mat(color)
@@ -162,7 +162,7 @@ W3D.Factory = {
     return this._register(mesh, 'sphere', 'Sphere', color, { radius, color });
   },
 
-  cone ({ radius = 0.5, height = 1, color = '#7a8fa8' } = {}) {
+  cone ({ radius = 0.5, height = 1, color = '#b4c2d0' } = {}) {
     const mesh = new THREE.Mesh(
       new THREE.ConeGeometry(radius, height, 32),
       this._mat(color)
@@ -171,7 +171,7 @@ W3D.Factory = {
     return this._register(mesh, 'cone', 'Cone', color, { radius, height, color });
   },
 
-  plane ({ width = 2, height = 2, color = '#7a8fa8' } = {}) {
+  plane ({ width = 2, height = 2, color = '#b4c2d0' } = {}) {
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(width, height),
       this._mat(color)
@@ -185,64 +185,85 @@ W3D.Factory = {
   ═══════════════════════════════════════════ */
 
   // Builds a multi-segment floor line from an array of {x,z} world points.
-  floorLine (points, { color = '#f5c200', lineWidth = 0.07 } = {}) {
+  floorLine (points, { color = '#f5c200', lineWidth = 0.08 } = {}) {
     if (!points || points.length < 2) return null;
+
+    // Use a Line (not mesh boxes) drawn in 3D space - always visible above floor
+    // Also add mesh strips for thickness
     const group = new THREE.Group();
-    const mat   = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
+    group.renderOrder = 2;
+
+    // Thin flat strips for each segment
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color),
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      depthWrite: false,
+    });
 
     for (let i = 0; i < points.length - 1; i++) {
       const p1 = points[i], p2 = points[i + 1];
       const dx = p2.x - p1.x, dz = p2.z - p1.z;
       const len = Math.sqrt(dx * dx + dz * dz);
       if (len < 0.001) continue;
-      const seg = new THREE.Mesh(new THREE.BoxGeometry(len, 0.025, lineWidth), mat.clone());
-      seg.position.set((p1.x + p2.x) / 2, 0.013, (p1.z + p2.z) / 2);
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(len, 0.008, lineWidth), mat.clone());
+      seg.position.set((p1.x + p2.x) / 2, 0.04, (p1.z + p2.z) / 2);
       seg.rotation.y = -Math.atan2(dz, dx);
-      // Add end dot for visibility
-      const dot = new THREE.Mesh(new THREE.CylinderGeometry(lineWidth / 2, lineWidth / 2, 0.025, 8), mat.clone());
-      dot.position.set(p1.x, 0.013, p1.z);
-      group.add(seg, dot);
+      seg.renderOrder = 2;
+      group.add(seg);
+      // Cap dot
+      const dot = new THREE.Mesh(new THREE.CylinderGeometry(lineWidth * 0.6, lineWidth * 0.6, 0.008, 8), mat.clone());
+      dot.position.set(p1.x, 0.04, p1.z);
+      dot.renderOrder = 2;
+      group.add(dot);
     }
-    // Last dot
+    // Final cap dot
     const last = points[points.length - 1];
-    const mat2 = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
-    const lastDot = new THREE.Mesh(new THREE.CylinderGeometry(lineWidth / 2, lineWidth / 2, 0.025, 8), mat2);
-    lastDot.position.set(last.x, 0.013, last.z);
+    const mat2 = mat.clone();
+    const lastDot = new THREE.Mesh(new THREE.CylinderGeometry(lineWidth * 0.6, lineWidth * 0.6, 0.008, 8), mat2);
+    lastDot.position.set(last.x, 0.04, last.z);
+    lastDot.renderOrder = 2;
     group.add(lastDot);
 
     return this._register(group, 'floorline', 'Floor Line', color, { points, color, lineWidth });
   },
 
-  // Builds a filled polygon zone from {x,z} points.
-  zone (points, { color = '#e8720c', opacity = 0.22, label = 'Zone' } = {}) {
+  // Builds a filled polygon zone from {x,z} world points.
+  zone (points, { color = '#e8720c', opacity = 0.13, label = 'Zone' } = {}) {
     if (!points || points.length < 3) return null;
 
-    // Build a flat polygon by triangulating with EarCut-style approach using THREE.Shape
+    // Build shape in XZ plane using a flat GROUP approach to avoid rotation confusion.
+    // We create geometry directly in the XZ plane so no rotation is needed.
+    const group = new THREE.Group();
+    group.position.y = 0.03; // float just above ground
+
+    // Filled polygon - use ShapeGeometry in XY plane then correct rotation on a sub-mesh
     const shape = new THREE.Shape();
     shape.moveTo(points[0].x, points[0].z);
     for (let i = 1; i < points.length; i++) shape.lineTo(points[i].x, points[i].z);
     shape.closePath();
 
-    const geo  = new THREE.ShapeGeometry(shape);
-    const mat  = new THREE.MeshBasicMaterial({
+    const fillGeo = new THREE.ShapeGeometry(shape);
+    const fillMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(color),
-      transparent: true,
-      opacity,
+      transparent: true, opacity,
       side: THREE.DoubleSide,
       depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
     });
-    const mesh = new THREE.Mesh(geo, mat);
-    // ShapeGeometry is built in XY plane; rotate to lie flat on XZ ground
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = 0.02;   // just above ground to avoid z-fighting
+    const fill = new THREE.Mesh(fillGeo, fillMat);
+    fill.rotation.x = -Math.PI / 2;
+    fill.renderOrder = 1;
+    group.add(fill);
 
-    // Also add an outline
-    const edges = new THREE.EdgesGeometry(geo);
-    const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(color), opacity: 0.7, transparent: true });
-    const outline = new THREE.LineSegments(edges, lineMat);
-    mesh.add(outline);
+    // Outline using LineLoop in XZ plane directly (no rotation needed)
+    const outlinePoints = points.map(p => new THREE.Vector3(p.x, 0, p.z));
+    outlinePoints.push(outlinePoints[0].clone()); // close loop
+    const outlineGeo = new THREE.BufferGeometry().setFromPoints(outlinePoints);
+    const outlineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(color) });
+    const outline = new THREE.Line(outlineGeo, outlineMat);
+    group.add(outline);
 
-    return this._register(mesh, 'zone', label, color, { points, color, opacity, label });
+    return this._register(group, 'zone', label, color, { points, color, opacity, label });
   },
 
   arrow ({ color = '#e8720c', length = 1.5 } = {}) {
@@ -304,7 +325,7 @@ W3D.Factory = {
     return obj;
   },
 
-  label3d ({ text = 'Label', color = '#ffffff', size = 0.45 } = {}) {
+  label3d ({ text = 'Label', color = '#333333', size = 0.45 } = {}) {
     const canvas = document.createElement('canvas');
     canvas.width  = 512;
     canvas.height = 128;
@@ -331,7 +352,7 @@ W3D.Factory = {
     return this._register(mesh, 'label3d', 'Label: ' + text, color, { text, color, size });
   },
 
-  imagePlane ({ width = 2, height = 1.5, color = '#ffffff' } = {}) {
+  imagePlane ({ width = 2, height = 1.5, color = '#333333' } = {}) {
     const mat  = new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat);
     mesh.position.y = height / 2 + 0.01;
@@ -360,7 +381,7 @@ W3D.Factory = {
     return obj;
   },
 
-  spotLight ({ color = '#ffffff', intensity = 1.2, distance = 18, angle = 0.45 } = {}) {
+  spotLight ({ color = '#333333', intensity = 1.2, distance = 18, angle = 0.45 } = {}) {
     const light = new THREE.SpotLight(new THREE.Color(color), intensity, distance, angle);
     light.position.set(0, 5, 0);
     light.castShadow = true;
@@ -487,7 +508,16 @@ W3D.Factory = {
     let obj = null;
 
     switch (entry.type) {
-      case 'wall':        obj = this.wallFromPoints({ x: 0, z: 0 }, { x: p.width || 4, z: 0 }, p); break;
+      case 'wall': {
+        // Reconstruct as a plain box; position/rotation applied below
+        const geo = new THREE.BoxGeometry(p.width || 4, p.height || 3, p.depth || 0.2);
+        const mesh = new THREE.Mesh(geo, this._mat(p.color || '#c8cdd2'));
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        W3D.scene.add(mesh);
+        obj = { id: W3D.genId(), mesh, type: 'wall', name: 'Wall', color: p.color || '#c8cdd2', props: p, files: [] };
+        W3D.objects.push(obj);
+        break;
+      }
       case 'floor':       obj = this.floor(p); break;
       case 'ceiling':     obj = this.ceiling(p); break;
       case 'door':        obj = this.door(p); break;
@@ -499,8 +529,25 @@ W3D.Factory = {
       case 'sphere':      obj = this.sphere(p); break;
       case 'cone':        obj = this.cone(p); break;
       case 'plane':       obj = this.plane(p); break;
-      case 'floorline':   obj = this.floorLine(p.points, p); break;
-      case 'zone':        obj = this.zone(p.points, p); break;
+      case 'floorline': {
+        if (p.points && p.points.length >= 2) {
+          obj = this.floorLine(p.points, p);
+        }
+        break;
+      }
+      case 'zone': {
+        if (p.points && p.points.length >= 3) {
+          obj = this.zone(p.points, p);
+        } else {
+          // Fallback if points missing
+          const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), new THREE.MeshBasicMaterial({color:0xe8720c,transparent:true,opacity:0.13,side:THREE.DoubleSide}));
+          mesh.rotation.x = -Math.PI/2; mesh.position.y = 0.03;
+          W3D.scene.add(mesh);
+          obj = { id: W3D.genId(), mesh, type: 'zone', name: p.label||'Zone', color: p.color||'#e8720c', props: p, files: [] };
+          W3D.objects.push(obj);
+        }
+        break;
+      }
       case 'arrow':       obj = this.arrow(p); break;
       case 'infopoint':   obj = this.infoPoint(p); break;
       case 'label3d':     obj = this.label3d(p); break;

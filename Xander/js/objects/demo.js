@@ -8,7 +8,7 @@ W3D.buildDemoScene = function () {
   const F = W3D.Factory;
 
   /* ── Ground floor ── */
-  const floor = F.floor({ width: 18, depth: 14, color: '#2c3440' });
+  const floor = F.floor({ width: 18, depth: 14, color: '#dde2e8' });
   floor.name = 'Ground Floor';
   floor.mesh.position.set(0, 0, 0);
 
@@ -20,24 +20,24 @@ W3D.buildDemoScene = function () {
     { s: { x: -9, z:  7 }, e: { x: -9, z: -7 }, name: 'West Wall'  },
   ];
   walls.forEach(w => {
-    const obj = F.wallFromPoints(w.s, w.e, { height: 3, depth: 0.22, color: '#4a5668' });
+    const obj = F.wallFromPoints(w.s, w.e, { height: 3, depth: 0.22, color: '#b8c4d0' });
     if (obj) obj.name = w.name;
   });
 
   /* ── Interior partition walls ── */
-  const iw1 = F.wallFromPoints({ x: -2, z: -7 }, { x: -2, z: 0 }, { height: 3, depth: 0.15, color: '#5a6878' });
+  const iw1 = F.wallFromPoints({ x: -2, z: -7 }, { x: -2, z: 0 }, { height: 3, depth: 0.15, color: '#c4cdd6' });
   if (iw1) iw1.name = 'Partition Wall';
-  const iw2 = F.wallFromPoints({ x: -2, z: 1.5 }, { x: -2, z: 7 }, { height: 3, depth: 0.15, color: '#5a6878' });
+  const iw2 = F.wallFromPoints({ x: -2, z: 1.5 }, { x: -2, z: 7 }, { height: 3, depth: 0.15, color: '#c4cdd6' });
   if (iw2) iw2.name = 'Partition Wall 2';
 
   /* ── Door ── */
-  const door = F.door({ color: '#7a5c3a' });
+  const door = F.door({ color: '#c4a882' });
   door.mesh.position.set(-2, 0, 0.75);
   door.mesh.rotation.y = Math.PI / 2;
   door.name = 'Meeting Room Door';
 
   /* ── Window in north wall ── */
-  const win = F.window({ width: 3, height: 1.4, color: '#88c4e8' });
+  const win = F.window({ width: 3, height: 1.4, color: '#aad4ee' });
   win.mesh.position.set(4, 1.5, -7);
   win.name = 'North Window';
 
@@ -56,20 +56,20 @@ W3D.buildDemoScene = function () {
   if (officeZone) officeZone.name = 'Open Office';
 
   /* ── Conference table ── */
-  const table = F.box({ width: 3.5, height: 0.08, depth: 1.6, color: '#5c3d1e' });
+  const table = F.box({ width: 3.5, height: 0.08, depth: 1.6, color: '#c8a878' });
   table.mesh.position.set(-5.5, 0.76, -1);
   table.name = 'Conference Table';
 
   /* ── Chairs ── */
   for (let i = 0; i < 4; i++) {
-    const chair = F.cylinder({ radiusTop: 0.28, radiusBottom: 0.28, height: 0.06, color: '#233040' });
+    const chair = F.cylinder({ radiusTop: 0.28, radiusBottom: 0.28, height: 0.06, color: '#9aaabb' });
     chair.mesh.position.set(-4.7 + i * 1.0, 0.74, 0.4);
     chair.name = 'Chair ' + (i + 1);
   }
 
   /* ── Desks (open office) ── */
   [[2.5, 0.76, -4], [5, 0.76, -4], [2.5, 0.76, -1.5], [5, 0.76, -1.5]].forEach(([x, y, z], i) => {
-    const desk = F.box({ width: 1.4, height: 0.06, depth: 0.8, color: '#7a6040' });
+    const desk = F.box({ width: 1.4, height: 0.06, depth: 0.8, color: '#c8b090' });
     desk.mesh.position.set(x, y, z);
     desk.name = 'Desk ' + (i + 1);
   });
@@ -89,7 +89,7 @@ W3D.buildDemoScene = function () {
   if (entrance) entrance.name = 'Entrance Path';
 
   /* ── Column ── */
-  const col = F.column({ radius: 0.22, height: 3, color: '#8898a8' });
+  const col = F.column({ radius: 0.22, height: 3, color: '#b0bcc8' });
   col.mesh.position.set(6, 0, 0);
   col.name = 'Support Column';
 
