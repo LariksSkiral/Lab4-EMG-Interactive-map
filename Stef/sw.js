@@ -1,7 +1,20 @@
-const STATIC_CACHE = "builder-static-v1";
-const RUNTIME_CACHE = "builder-runtime-v1";
+const STATIC_CACHE = "minimal3d-static-v1";
+const RUNTIME_CACHE = "minimal3d-runtime-v1";
 
-const APP_SHELL = ["./", "./index.html", "./style.css", "./main.js"];
+const APP_SHELL = [
+  "./",
+  "./index.html",
+  "./admin.html",
+  "./css/ui.css",
+  "./public/js/core/state.js",
+  "./public/js/core/renderer.js",
+  "./public/js/objects/factory.js",
+  "./public/js/tools/transform.js",
+  "./public/supabase.js",
+  "./public/js/core/database.js",
+  "./public/auth.js",
+  "./public/js/core/main.js",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

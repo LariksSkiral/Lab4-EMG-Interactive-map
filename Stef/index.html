@@ -1,68 +1,132 @@
 <!DOCTYPE html>
-<html lang="nl">
+<!--
+  Main viewer page for Minimal3D.
+  This page focuses on navigation and model viewing.
+  Upload/admin actions are moved to admin.html.
+-->
+<html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D Builder</title>
-    <link rel="stylesheet" href="./style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal3D Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/ui.css">
 </head>
 
 <body>
-    <div id="app">
-        <aside class="sidebar">
-            <h2>Asset Library</h2>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="tb-left">
+        <span class="tb-logo">⬡ Minimal3D</span>
+        <span class="tb-scene-name">Viewer Mode</span>
+      </div>
+      <div class="tb-right">
+        <span class="tb-badge">Guest</span>
+        <a class="tb-btn active" href="index.html">Viewer</a>
+        <a class="tb-btn" href="admin.html">Admin</a>
+      </div>
+    </header>
 
-            <button id="uploadBtn" type="button">Upload</button>
-            <input id="fileInput" type="file" multiple hidden accept=".fbx,.glb,.gltf,.obj,.stl" />
-
-            <div class="info-box">
-                <p><strong>Controls</strong></p>
-                <p>Klik een asset om placement mode te starten.</p>
-                <p>Klik in de scene om te plaatsen.</p>
-                <p>G = move, R = rotate, S = scale</p>
-                <p>Delete = verwijderen</p>
-            </div>
-
-            <div id="assetList"></div>
-        </aside>
-
-        <main class="main-area">
-            <div class="topbar">
-                <span id="modeLabel">Mode: select</span>
-                <button id="cancelPlacementBtn" type="button">Cancel placement</button>
-            </div>
-            <div id="sceneContainer"></div>
-        </main>
+    <div id="offline-banner" class="offline-banner is-hidden">
+      <span class="offline-icon">⚠️</span>
+      <span class="offline-text">You are currently offline. Some features may not be available.</span>
     </div>
 
-    <div id="offlineBanner" class="offline-banner hidden">
-        Je bent offline
-    </div>
+    <main class="main-stage">
+      <canvas id="three-canvas"></canvas>
 
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
-      }
-    }
-    </script>
+      <button id="viewer-help-trigger" class="viewer-help-trigger" type="button" aria-label="Open viewer controls help"
+        aria-haspopup="dialog" aria-controls="viewer-help-modal" aria-expanded="false">
+        ?
+      </button>
 
-    <script type="module" src="./main.js"></script>
+      <div id="viewer-help-modal" class="viewer-help-modal is-hidden" aria-hidden="true">
+        <div id="viewer-help-backdrop" class="viewer-help-backdrop"></div>
+        <section class="viewer-help-panel" role="dialog" aria-modal="true" aria-labelledby="viewer-help-title"
+          aria-describedby="viewer-help-description">
+          <button id="viewer-help-close" class="viewer-help-close" type="button" aria-label="Close help">
+            ✕
+          </button>
 
-    <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", async () => {
-                try {
-                    await navigator.serviceWorker.register("./sw.js");
-                    console.log("Service worker geregistreerd");
-                } catch (error) {
-                    console.error("Service worker registratie mislukt:", error);
-                }
-            });
-        }
-    </script>
+          <p class="viewer-help-eyebrow">Quick help</p>
+          <h2 id="viewer-help-title">How to explore the 3D map</h2>
+          <p id="viewer-help-description" class="viewer-help-copy">
+            Use these simple mouse controls to look around comfortably, even if this is your first time in a 3D viewer.
+          </p>
+
+          <div class="viewer-help-grid">
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">⟲</span>
+              <div>
+                <h3>Rotate</h3>
+                <p>Left-click and drag to turn the camera and look around the scene.</p>
+              </div>
+            </article>
+
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">✥</span>
+              <div>
+                <h3>Move</h3>
+                <p>Right-click and drag to slide across the map without changing your height.</p>
+              </div>
+            </article>
+
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">⇅</span>
+              <div>
+                <h3>Zoom</h3>
+                <p>Scroll up or down to move closer for detail or farther away for overview.</p>
+              </div>
+            </article>
+
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">⟷</span>
+              <div>
+                <h3>Drag</h3>
+                <p>Click, hold, and move slowly at first. Small drags make the view easier to control.</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="viewer-help-tip">
+            <strong>Tip:</strong> If you use a trackpad, try two-finger drag for panning and pinch to zoom.
+          </div>
+        </section>
+      </div>
+
+      <!-- New machine action icons shown while a machine is selected -->
+      <div id="machine-action-icons" class="machine-action-icons is-hidden">
+        <button type="button" data-action="course" class="action-icon" title="Cursusmateriaal">📘</button>
+        <button type="button" data-action="maintenance" class="action-icon" title="Onderdelen / onderhoud">⚙️</button>
+        <button type="button" data-action="safety" class="action-icon" title="Veiligheid">⚠️</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Vite replaces these placeholders with .env values when served. -->
+  <script>
+    window.APP_CONFIG = {
+      SUPABASE_URL: '%VITE_SUPABASE_URL%',
+      SUPABASE_ANON_KEY: '%VITE_SUPABASE_ANON_KEY%',
+      SUPABASE_BUCKET: '%VITE_SUPABASE_BUCKET%',
+    };
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script src="js/core/state.js"></script>
+  <script src="js/core/renderer.js"></script>
+  <script src="js/objects/factory.js"></script>
+  <script src="supabase.js"></script>
+  <script src="js/core/database.js"></script>
+  <script src="js/core/main.js"></script>
 </body>
 
 </html>
