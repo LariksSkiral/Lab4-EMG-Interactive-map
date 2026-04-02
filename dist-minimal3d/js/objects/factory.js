@@ -1,3 +1,4 @@
+/* This file has functions to create and load 3D objects, like models and shapes. We need this to add things to the scene. Without it, there would be nothing to see in 3D. For beginners: This is like a factory that builds and imports 3D items so we can place them in our virtual world. */
 /* Factory for creating objects - Functions to make and add 3D objects to the scene */
 W3D.Factory = {
   // Helper to create a material (color and appearance) for meshes
@@ -56,12 +57,12 @@ W3D.Factory = {
       // Enable shadows on all parts of the model
       model.traverse(c => { c.castShadow = true; c.receiveShadow = true; });
 
-      // Auto-scale model to approximately 36 meters in max dimension (36 blocks * 0.5 m per block)
+      // Auto-scale model to approximately 96 units in max dimension (48 meters with 0.5m grid step)
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const currentLength = Math.max(size.x, size.z, size.y);
       if (currentLength > 0) {
-        const targetLength = 36; // real-world target length in meters
+        const targetLength = 96; // target length in scene units (0.5m per unit)
         const scaleFactor = targetLength / currentLength;
         model.scale.multiplyScalar(scaleFactor);
       }
@@ -83,6 +84,38 @@ W3D.Factory = {
       W3D.objects.push(obj); // Track the model
     }, undefined, err => {
       console.error('Failed to load local model:', err); // Log errors
+    });
+  },
+
+  // Load a 3D model from a remote URL (for example: Supabase Storage public file URL)
+  loadRemoteGLTF(url, displayName = 'Supabase Model') {
+    const loader = new THREE.GLTFLoader(); // Loader for GLTF models
+    loader.load(url, gltf => {
+      const model = gltf.scene; // The loaded 3D model
+      // Enable shadows on all parts of the model
+      model.traverse(c => { c.castShadow = true; c.receiveShadow = true; });
+
+      // Auto-scale large models to fit better in the current scene
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3()).length();
+      if (size > 8) { const s = 4 / size; model.scale.set(s, s, s); }
+
+      // Keep uploaded models resting on the same y=0 floor as the local model.
+      const boxAfterScale = new THREE.Box3().setFromObject(model);
+      const minY = boxAfterScale.min.y;
+      if (minY !== undefined && !Number.isNaN(minY)) {
+        model.position.y -= minY;
+      }
+
+      W3D.scene.add(model); // Add model to scene
+      const obj = {
+        id: W3D.genId(), mesh: model, type: 'gltf',
+        name: displayName.replace(/\.(glb|gltf)$/i, ''),
+        color: '#ffffff', props: { filepath: url }, files: [],
+      };
+      W3D.objects.push(obj); // Track the model
+    }, undefined, err => {
+      console.error('Failed to load remote model:', err); // Log errors
     });
   },
 

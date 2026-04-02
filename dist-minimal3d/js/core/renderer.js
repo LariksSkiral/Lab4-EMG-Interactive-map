@@ -1,3 +1,4 @@
+/* This file sets up the 3D world in our app. It creates the scene, camera, lights, and grid, and handles drawing everything on screen. We need this to make the 3D graphics work. Without it, there would be no 3D view. For beginners: This is like setting up a movie set with cameras, lights, and props so we can film and show the 3D scene. */
 /* Three.js scene setup, camera, lighting, animation loop - This sets up the 3D world */
 W3D.initRenderer = function() {
   // Get the canvas element from HTML where we'll draw
@@ -29,9 +30,28 @@ W3D.initRenderer = function() {
   W3D.orbitControls = new THREE.OrbitControls(W3D.camera, W3D.renderer.domElement);
   W3D.orbitControls.enableDamping = true; // Smooth movement
   W3D.orbitControls.dampingFactor = 0.07;
-  W3D.orbitControls.maxPolarAngle = Math.PI / 1.9; // Limit vertical rotation
+  // Keep the camera above the ground plane so the underside is never visible
+  W3D.orbitControls.minPolarAngle = 0.1; // slightly above straight overhead
+  W3D.orbitControls.maxPolarAngle = Math.PI / 2.1; // below horizontal, prevent under-view
   W3D.orbitControls.minDistance = 0.5; // Min zoom
   W3D.orbitControls.maxDistance = 200; // Max zoom
+
+  const floorY = 0;
+  const floorEpsilon = 0.05;
+
+  function clampViewAboveFloor() {
+    const target = W3D.orbitControls.target;
+    const delta = Math.max(
+      floorY - target.y,
+      floorY + floorEpsilon - W3D.camera.position.y,
+      0
+    );
+
+    if (delta > 0) {
+      target.y += delta;
+      W3D.camera.position.y += delta;
+    }
+  }
 
   // Lighting setup
   // Ambient light (soft, everywhere)
@@ -56,7 +76,10 @@ W3D.initRenderer = function() {
   W3D.scene.add(fill);
 
   // Add a grid on the ground for reference
-  const gridHelper = new THREE.GridHelper(100, 100, 0x2a2e38, 0x1e2230);
+  // Keep each block same size, but show many more blocks for a large workspace
+  const gridSize = 240; // 240 units wide = 120m at 0.5m per unit
+  const gridDivisions = 240; // 240 lines
+  const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x2a2e38, 0x1e2230);
   W3D.scene.add(gridHelper);
 
   // Handle window resize to keep canvas full-screen
@@ -72,6 +95,7 @@ W3D.initRenderer = function() {
   (function animate() {
     requestAnimationFrame(animate); // Call this function again next frame
     W3D.orbitControls.update(); // Update camera controls
+    clampViewAboveFloor();
 
     // Render (draw) the scene with the camera
     W3D.renderer.render(W3D.scene, W3D.camera);

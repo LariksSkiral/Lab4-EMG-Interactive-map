@@ -1,3 +1,4 @@
+/* This file holds the global state (data) for our 3D app. It stores important things like the scene, camera, and objects. We need this to keep track of everything in the app, so different parts can share and update the data. Without it, the app wouldn't know what to draw or control. For beginners: Think of this as a shared notebook where all parts of the app write and read notes to work together. */
 /* Minimal global state - This object holds all the important variables for our 3D app */
 const W3D = {
   // The 3D scene where we place objects (like a stage)
