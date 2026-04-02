@@ -13,7 +13,11 @@
   - machines.positionX
   - machines.positionY   (used as Three.js Z)
   - machines.rotationZ   (used as Three.js Y rotation)
-  - machines.model       (foreign key to machine_types.id)
+  - machines.machine_type_id (foreign key to machine_types.id)
+  - machine_types.id
+  - machine_types.name
+  - machine_types.model
+  - machine_type_links.machine_type_id (foreign key to machine_types.id)
 
   If your real database uses slightly different names, edit the small config block below.
 */
@@ -33,12 +37,17 @@ W3D.Database = {
     machinePositionX: 'positionX',
     machinePositionZ: 'positionY',
     machineRotationY: 'rotationZ',
-    machineTypeForeignKey: 'model',
+    machineTypeForeignKey: 'machine_type_id',
 
     machineTypeId: 'id',
     machineTypeName: 'name',
     machineTypeModelPath: 'model',
-    machineTypeLinkForeignKey: 'link',
+
+    machineTypeLinkId: 'id',
+    machineTypeLinkOne: 'course_url',
+    machineTypeLinkTwo: 'maintenance_url',
+    machineTypeLinkThree: 'safety_url',
+    machineTypeLinkMachineTypeForeignKey: 'machine_type_id',
   },
 
   // Fallback read keys help when a table already exists with a slightly different column name.
@@ -47,7 +56,7 @@ W3D.Database = {
     machinePositionX: ['positionX', 'postion X', 'position_x'],
     machinePositionZ: ['positionY', 'positionZ', 'position_y', 'position_z'],
     machineRotationY: ['rotationZ', 'rotationY', 'rotation_y', 'rotation_z'],
-    machineTypeForeignKey: ['model', 'machine_type', 'machineTypeId'],
+    machineTypeForeignKey: ['machine_type_id', 'model', 'machine_type', 'machineTypeId'],
   },
 
   // Small cache of UI elements used by this database feature.
@@ -367,6 +376,27 @@ W3D.Database = {
     return machineTypesByStoragePath;
   },
 
+  // Read all machine type link rows and index them by their parent machine type id.
+  // The current schema stores the foreign key on machine_type_links instead of machine_types.
+  async _fetchMachineTypeLinksByMachineTypeId(client) {
+    const { data, error } = await client
+      .from(this.tables.machineTypeLinks)
+      .select('*');
+
+    if (error) {
+      throw new Error(`Could not read machine type links: ${error.message}`);
+    }
+
+    const machineTypeLinksByMachineTypeId = new Map();
+    (data || []).forEach(row => {
+      const machineTypeId = row[this.columns.machineTypeLinkMachineTypeForeignKey];
+      if (machineTypeId == null) return;
+      machineTypeLinksByMachineTypeId.set(machineTypeId, row);
+    });
+
+    return machineTypeLinksByMachineTypeId;
+  },
+
   // Make sure a machine type exists for a loaded model.
   // If the type is missing, we create it automatically so Save keeps working for new models.
   async _ensureMachineType(client, machineTypesByStoragePath, objectEntry) {
@@ -379,7 +409,6 @@ W3D.Database = {
     const existingType = machineTypesByStoragePath.get(normalizedStoragePath) || machineTypesByStoragePath.get(storagePath);
     if (existingType) {
       objectEntry.props.machineTypeId = existingType[this.columns.machineTypeId];
-      objectEntry.props.machineTypeLinkId = existingType[this.columns.machineTypeLinkForeignKey] || null;
       return existingType[this.columns.machineTypeId];
     }
 
@@ -403,8 +432,141 @@ W3D.Database = {
       machineTypesByStoragePath.set(normalizedStoragePath, data);
     }
     objectEntry.props.machineTypeId = data[this.columns.machineTypeId];
-    objectEntry.props.machineTypeLinkId = data[this.columns.machineTypeLinkForeignKey] || null;
     return data[this.columns.machineTypeId];
+  },
+
+  // Create a new machine type entry for a freshly uploaded model.
+  // This writes the machine type first, then stores the optional external links in the child table.
+  async createMachineTypeWithLinks({ name, storagePath, links = [] }) {
+    const client = await this._ensureClient();
+    const trimmedName = String(name || '').trim();
+    const normalizedStoragePath = this._normalizeStoragePath(storagePath);
+    const cleanedLinks = [0, 1, 2].map(index => {
+      const value = Array.isArray(links) ? links[index] : '';
+      const trimmedValue = String(value || '').trim();
+      return trimmedValue || null;
+    });
+
+    if (!trimmedName) {
+      throw new Error('Machine name is required.');
+    }
+
+    if (!normalizedStoragePath) {
+      throw new Error('Model storage path is required.');
+    }
+
+    const machineTypePayload = {
+      [this.columns.machineTypeName]: trimmedName,
+      [this.columns.machineTypeModelPath]: normalizedStoragePath,
+    };
+
+    const { data: machineTypeRow, error: machineTypeError } = await client
+      .from(this.tables.machineTypes)
+      .insert(machineTypePayload)
+      .select('*')
+      .single();
+
+    if (machineTypeError) {
+      throw new Error(`Could not save machine type: ${machineTypeError.message}`);
+    }
+
+    const linkPayload = {
+      [this.columns.machineTypeLinkOne]: cleanedLinks[0],
+      [this.columns.machineTypeLinkTwo]: cleanedLinks[1],
+      [this.columns.machineTypeLinkThree]: cleanedLinks[2],
+      [this.columns.machineTypeLinkMachineTypeForeignKey]: machineTypeRow[this.columns.machineTypeId],
+    };
+
+    const { data: linkRow, error: linkError } = await client
+      .from(this.tables.machineTypeLinks)
+      .insert(linkPayload)
+      .select('*')
+      .single();
+
+    if (linkError) {
+      await client
+        .from(this.tables.machineTypes)
+        .delete()
+        .eq(this.columns.machineTypeId, machineTypeRow[this.columns.machineTypeId]);
+
+      throw new Error(`Could not save machine links: ${linkError.message}`);
+    }
+
+    return {
+      machineType: machineTypeRow,
+      machineTypeLink: linkRow,
+    };
+  },
+
+  // Upload the model file and create the related database rows as one save flow.
+  // If any later step fails, we clean up the uploaded file so storage does not drift away from the database.
+  async createMachineTypeWithFile({ name, file, links = [] }) {
+    const client = await this._ensureClient();
+    const trimmedName = String(name || '').trim();
+    const modelFile = file || null;
+    let uploadedStoragePath = '';
+    let hasUploadedFile = false;
+
+    if (!trimmedName) {
+      throw new Error('Machine name is required.');
+    }
+
+    if (!modelFile) {
+      throw new Error('Model file is required.');
+    }
+
+    if (!/\.(glb|gltf)$/i.test(modelFile.name || '')) {
+      throw new Error('Only .glb or .gltf files are allowed.');
+    }
+
+    if (!W3D.Supabase || !W3D.Supabase.config || !W3D.Supabase.config.bucket) {
+      throw new Error('Supabase storage bucket is not configured.');
+    }
+
+    try {
+      uploadedStoragePath = W3D.Supabase._buildStoragePath(modelFile.name);
+
+      const { error: uploadError } = await client.storage
+        .from(W3D.Supabase.config.bucket)
+        .upload(uploadedStoragePath, modelFile, {
+          upsert: false,
+          contentType: modelFile.type || 'model/gltf-binary',
+        });
+
+      if (uploadError) {
+        const uploadMessage = String(uploadError.message || 'Unknown upload error.');
+        if (/networkerror|failed to fetch|fetch resource/i.test(uploadMessage)) {
+          throw new Error('Could not upload model file because the browser could not reach Supabase Storage. Check browser extensions, VPN, firewall, or retry in another browser.');
+        }
+
+        throw new Error(`Could not upload model file: ${uploadMessage}`);
+      }
+
+      hasUploadedFile = true;
+
+      const createdRows = await this.createMachineTypeWithLinks({
+        name: trimmedName,
+        storagePath: uploadedStoragePath,
+        links,
+      });
+
+      return {
+        ...createdRows,
+        storagePath: uploadedStoragePath,
+      };
+    } catch (error) {
+      if (hasUploadedFile && uploadedStoragePath) {
+        const { error: cleanupError } = await client.storage
+          .from(W3D.Supabase.config.bucket)
+          .remove([uploadedStoragePath]);
+
+        if (cleanupError) {
+          console.warn('Could not clean up uploaded model after failed save:', cleanupError);
+        }
+      }
+
+      throw error;
+    }
   },
 
   // Convert one canvas object into a database row.
@@ -536,6 +698,8 @@ W3D.Database = {
         throw new Error(`Could not read machine types: ${machineTypeError.message}`);
       }
 
+      const machineTypeLinksByMachineTypeId = await this._fetchMachineTypeLinksByMachineTypeId(client);
+
       const machineTypesById = new Map();
       (machineTypeRows || []).forEach(row => {
         machineTypesById.set(row[this.columns.machineTypeId], row);
@@ -567,6 +731,7 @@ W3D.Database = {
           this.readColumns.machineTypeForeignKey
         );
         const machineTypeRow = machineTypesById.get(machineTypeId);
+        const machineTypeLinkRow = machineTypeLinksByMachineTypeId.get(machineTypeId) || null;
 
         if (!machineTypeRow) {
           console.warn('Skipping machine row because machine type is missing:', machineRow);
@@ -593,7 +758,7 @@ W3D.Database = {
                 storagePath: modelCandidates.normalizedPath || this._normalizeStoragePath(modelReference),
                 machineId: machineRow[this.columns.machineId] || null,
                 machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
-                machineTypeLinkId: machineTypeRow[this.columns.machineTypeLinkForeignKey] || null,
+                machineTypeLinkId: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkId] || null : null,
                 positionX: this._toNumber(
                   this._readRowValue(machineRow, this.columns.machinePositionX, this.readColumns.machinePositionX)
                 ),

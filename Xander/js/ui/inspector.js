@@ -1,136 +1,144 @@
 /* ═══════════════════════════════════════════════════════
    js/ui/inspector.js
-   Right-side inspector panel: builds property forms for
-   the selected object and applies live changes.
+   Right-side inspector panel.
+   1 Three.js unit = 1 metre throughout.
 ═══════════════════════════════════════════════════════ */
 
 W3D.Inspector = {
 
-  /* ── Build inspector for an object ── */
   build (obj) {
     const body  = document.getElementById('inspector-body');
     const badge = document.getElementById('insp-type-badge');
-
     if (!obj) { this.clear(); return; }
 
     badge.textContent = obj.type.toUpperCase();
     badge.classList.add('active');
 
-    const sections = [];
+    const S = []; // sections array
 
-    /* ── Object identity ── */
-    sections.push(this._section('Object', `
-      ${this._row('Name',  this._text('insp-name', obj.name))}
-      ${this._row('Type',  `<span class="insp-input" style="background:none;border:none;color:var(--text-2)">${obj.type}</span>`)}
+    /* ── Name / Type ── */
+    S.push(this._sec('Object', `
+      ${this._row('Name', this._txt('insp-name', obj.name))}
+      ${this._row('Type', `<span style="color:var(--text-2);font-size:11px">${obj.type}</span>`)}
     `));
 
     /* ── Transform ── */
-    const p = obj.mesh?.position ?? { x:0,y:0,z:0 };
-    const r = obj.mesh ? {
+    const pos = obj.mesh?.position ?? {x:0,y:0,z:0};
+    const rot = obj.mesh ? {
       x: this._deg(obj.mesh.rotation.x),
       y: this._deg(obj.mesh.rotation.y),
       z: this._deg(obj.mesh.rotation.z),
     } : {x:0,y:0,z:0};
-    const s = obj.mesh?.scale ?? {x:1,y:1,z:1};
+    const scl = obj.mesh?.scale ?? {x:1,y:1,z:1};
 
-    sections.push(this._section('Transform', `
-      ${this._row('Pos',   this._xyz('pos', p.x, p.y, p.z))}
-      ${this._row('Rot°',  this._xyz('rot', r.x, r.y, r.z))}
-      ${this._row('Scale', this._xyz('scl', s.x, s.y, s.z))}
+    S.push(this._sec('Transform', `
+      <div class="insp-scale-note">1 unit = 1 metre</div>
+      ${this._row('Pos m',   this._xyz3('pos', pos.x, pos.y, pos.z))}
+      ${this._row('Rot °',   this._xyz3('rot', rot.x, rot.y, rot.z))}
+      ${this._row('Scale',   this._xyz3('scl', scl.x, scl.y, scl.z))}
     `));
 
     /* ── Appearance ── */
-    const colorVal = obj.color || '#888888';
-    let appearBody = this._row('Color', `<input type="color" class="insp-input" id="insp-color" value="${colorVal}"/>`);
-    if (['zone', 'window', 'image-plane'].includes(obj.type)) {
-      const op = obj.props?.opacity ?? 1;
-      appearBody += this._row('Opacity', `<input type="range" id="insp-opacity" min="0" max="1" step="0.05" value="${op}"/>`);
+    const col = obj.color || '#888888';
+    let appHTML = this._row('Color', `<input type="color" class="insp-input" id="insp-color" value="${col}" style="max-width:60px"/>`);
+    if (['zone','window','image-plane'].includes(obj.type)) {
+      const op = obj.props?.opacity ?? 0.13;
+      appHTML += this._row('Opacity', `<input type="range" id="insp-opacity" min="0" max="1" step="0.05" value="${op}"/>`);
     }
-    sections.push(this._section('Appearance', appearBody));
+    S.push(this._sec('Appearance', appHTML));
 
-    /* ── Dimensions (type-specific) ── */
-    const dimBody = this._buildDimensionFields(obj);
-    if (dimBody) sections.push(this._section('Dimensions', dimBody));
+    /* ── Dimensions (with metre labels) ── */
+    const dimHTML = this._dimFields(obj);
+    if (dimHTML) S.push(this._sec('Dimensions (m)', dimHTML));
 
-    /* ── Info Point fields ── */
+    /* ── Info Point ── */
     if (obj.type === 'infopoint') {
-      sections.push(this._section('Info Point', `
-        ${this._row('Label', this._text('insp-ip-label', obj.props?.label ?? ''))}
-        <div class="insp-row" style="flex-direction:column;gap:4px">
-          <span class="insp-lbl" style="width:auto">Description</span>
-          <textarea class="insp-textarea" id="insp-ip-desc" rows="5" placeholder="Enter description…">${this._esc(obj.props?.description ?? '')}</textarea>
+      const lbl  = obj.props?.label       ?? '';
+      const desc = obj.props?.description ?? '';
+      S.push(this._sec('Info Point', `
+        ${this._row('Label', this._txt('insp-ip-label', lbl))}
+        <div style="margin-top:6px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-2);margin-bottom:4px">Description</div>
+          <textarea class="insp-textarea" id="insp-ip-desc" rows="4" placeholder="Enter description…">${this._esc(desc)}</textarea>
         </div>
       `));
-      sections.push(this._buildFilesSection(obj));
+      S.push(this._filesSection(obj));
     }
 
     /* ── Zone ── */
     if (obj.type === 'zone') {
-      sections.push(this._section('Zone', `
-        ${this._row('Label', this._text('insp-zone-label', obj.props?.label ?? ''))}
+      S.push(this._sec('Zone', `
+        ${this._row('Label',   this._txt('insp-zone-label', obj.props?.label ?? ''))}
+        ${this._row('Opacity', `<input type="range" id="insp-opacity" min="0" max="1" step="0.05" value="${obj.props?.opacity ?? 0.13}"/>`)}
       `));
     }
 
     /* ── 3D Label ── */
     if (obj.type === 'label3d') {
-      sections.push(this._section('Label', `
-        ${this._row('Text', this._text('insp-lbl-text', obj.props?.text ?? ''))}
-        ${this._row('Size', `<input type="number" class="insp-input" id="insp-lbl-size" value="${obj.props?.size ?? 0.45}" step="0.05" min="0.1"/>`)}
+      S.push(this._sec('Label Text', `
+        ${this._row('Text', this._txt('insp-lbl-text', obj.props?.text ?? ''))}
+        ${this._row('Size m', `<input type="number" class="insp-input" id="insp-lbl-size" value="${obj.props?.size ?? 0.45}" step="0.05" min="0.1"/>`)}
       `));
     }
 
     /* ── Light ── */
-    if (['point-light', 'spot-light'].includes(obj.type)) {
-      sections.push(this._section('Light', `
-        ${this._row('Intensity', `<input type="number" class="insp-input" id="insp-light-int" value="${obj.props?.intensity ?? 1}" step="0.1" min="0"/>`)}
-        ${this._row('Distance',  `<input type="number" class="insp-input" id="insp-light-dist" value="${obj.props?.distance ?? 10}" step="0.5" min="0"/>`)}
+    if (['point-light','spot-light'].includes(obj.type)) {
+      S.push(this._sec('Light', `
+        ${this._row('Intensity', `<input type="number" class="insp-input" id="insp-light-int"  value="${obj.props?.intensity ?? 1}"   step="0.1" min="0"/>`)}
+        ${this._row('Dist m',    `<input type="number" class="insp-input" id="insp-light-dist" value="${obj.props?.distance ?? 10}"   step="0.5" min="0"/>`)}
+      `));
+    }
+
+    /* ── Floor Line ── */
+    if (obj.type === 'floorline') {
+      S.push(this._sec('Floor Line', `
+        ${this._row('Width m', `<input type="number" class="insp-input" id="insp-fl-width" value="${obj.props?.lineWidth ?? 0.08}" step="0.01" min="0.01"/>`)}
       `));
     }
 
     /* ── Actions ── */
-    sections.push(this._section('Actions', `
-      <label class="check-row" style="margin-bottom:4px">
-        <input type="checkbox" id="insp-visible" ${obj.mesh?.visible !== false ? 'checked' : ''}> Visible
+    S.push(this._sec('Actions', `
+      <label class="check-row" style="margin-bottom:6px">
+        <input type="checkbox" id="insp-visible" ${obj.mesh?.visible !== false ? 'checked' : ''}> Visible in scene
       </label>
-      <button class="insp-btn" id="insp-btn-focus">⊙ Focus Camera</button>
+      <button class="insp-btn"         id="insp-btn-focus">⊙ Focus Camera</button>
       <button class="insp-btn primary" id="insp-btn-dup">⧉ Duplicate</button>
       <button class="insp-btn danger"  id="insp-btn-del">🗑 Delete Object</button>
     `));
 
-    body.innerHTML = sections.join('');
+    body.innerHTML = S.join('');
     this._bind(obj);
   },
 
-  /* ── Clear inspector (no selection) ── */
   clear () {
     document.getElementById('inspector-body').innerHTML = `
       <div class="insp-empty">
         <div class="insp-empty-icon">↖</div>
         <p>No object selected</p>
-        <small>Click an object in the viewport or scene tree</small>
+        <small>Click any object in the viewport or scene tree</small>
       </div>`;
     const badge = document.getElementById('insp-type-badge');
-    badge.textContent = '—';
-    badge.classList.remove('active');
+    if (badge) { badge.textContent = '—'; badge.classList.remove('active'); }
   },
 
-  /* ── Sync transform values (called while dragging) ── */
+  /* Sync while dragging (called from renderer change event) */
   sync () {
     const obj = W3D.selectedObject;
     if (!obj?.mesh) return;
     const p = obj.mesh.position, r = obj.mesh.rotation, s = obj.mesh.scale;
-    const get = id => document.getElementById(id);
-    ['x','y','z'].forEach((a,i) => {
-      get('insp-pos-' + a)?.setAttribute('value', this._f(p[a]));
-      get('insp-pos-' + a) && (get('insp-pos-' + a).value = this._f(p[a]));
-      get('insp-rot-' + a) && (get('insp-rot-' + a).value = this._f(this._deg(r[a])));
-      get('insp-scl-' + a) && (get('insp-scl-' + a).value = this._f(s[a]));
+    ['x','y','z'].forEach(a => {
+      const pe = document.getElementById(`insp-pos-${a}`);
+      const re = document.getElementById(`insp-rot-${a}`);
+      const se = document.getElementById(`insp-scl-${a}`);
+      if (pe) pe.value = this._f(p[a]);
+      if (re) re.value = this._f(this._deg(r[a]));
+      if (se) se.value = this._f(s[a]);
     });
   },
 
-  /* ─── Private builders ─────────────────────── */
+  /* ─── HTML builders ─────────────────────────── */
 
-  _section (title, body) {
+  _sec (title, body) {
     return `<div class="insp-section">
       <div class="insp-sec-header">${title}</div>
       <div class="insp-sec-body">${body}</div>
@@ -138,60 +146,58 @@ W3D.Inspector = {
   },
 
   _row (label, input) {
-    return `<div class="insp-row"><span class="insp-lbl">${label}</span>${input}</div>`;
-  },
-
-  _text (id, val) {
-    return `<input class="insp-input" id="${id}" value="${this._esc(val)}"/>`;
-  },
-
-  _xyz (prefix, x, y, z) {
-    return `<div class="insp-xyz">
-      <div><input type="number" id="insp-${prefix}-x" value="${this._f(x)}" step="0.01"/><span class="insp-xyz-label">X</span></div>
-      <div><input type="number" id="insp-${prefix}-y" value="${this._f(y)}" step="0.01"/><span class="insp-xyz-label">Y</span></div>
-      <div><input type="number" id="insp-${prefix}-z" value="${this._f(z)}" step="0.01"/><span class="insp-xyz-label">Z</span></div>
+    return `<div class="insp-row">
+      <span class="insp-lbl">${label}</span>${input}
     </div>`;
   },
 
-  _buildDimensionFields (obj) {
+  _txt (id, val) {
+    return `<input class="insp-input" id="${id}" value="${this._esc(val)}"/>`;
+  },
+
+  _xyz3 (prefix, x, y, z) {
+    return `<div class="insp-xyz">
+      <div><input type="number" id="insp-${prefix}-x" value="${this._f(x)}" step="0.05"/><span class="insp-xyz-label">X</span></div>
+      <div><input type="number" id="insp-${prefix}-y" value="${this._f(y)}" step="0.05"/><span class="insp-xyz-label">Y</span></div>
+      <div><input type="number" id="insp-${prefix}-z" value="${this._f(z)}" step="0.05"/><span class="insp-xyz-label">Z</span></div>
+    </div>`;
+  },
+
+  _dimFields (obj) {
     const p = obj.props || {};
+    const n = (id, label, val, step=0.1) =>
+      this._row(label, `<input type="number" class="insp-input" id="${id}" value="${this._f(val)}" step="${step}" min="0.01"/>`);
     switch (obj.type) {
-      case 'wall': case 'box': case 'floor': case 'ceiling':
-        return `
-          ${this._row('Width',  `<input type="number" class="insp-input" id="insp-dim-w" value="${p.width  ?? 1}" step="0.1" min="0.01"/>`)}
-          ${this._row('Height', `<input type="number" class="insp-input" id="insp-dim-h" value="${p.height ?? 1}" step="0.1" min="0.01"/>`)}
-          ${this._row('Depth',  `<input type="number" class="insp-input" id="insp-dim-d" value="${p.depth  ?? 1}" step="0.1" min="0.01"/>`)}`;
+      case 'wall': case 'floor': case 'ceiling': case 'box':
+        return n('insp-dim-w','Width m',  p.width  ?? 1)
+             + n('insp-dim-h','Height m', p.height ?? 1)
+             + n('insp-dim-d','Depth m',  p.depth  ?? 1);
       case 'cylinder':
-        return `
-          ${this._row('Top R',   `<input type="number" class="insp-input" id="insp-dim-rt" value="${p.radiusTop    ?? 0.5}" step="0.05" min="0.01"/>`)}
-          ${this._row('Bot R',   `<input type="number" class="insp-input" id="insp-dim-rb" value="${p.radiusBottom ?? 0.5}" step="0.05" min="0.01"/>`)}
-          ${this._row('Height',  `<input type="number" class="insp-input" id="insp-dim-h"  value="${p.height        ?? 1  }" step="0.1"  min="0.01"/>`)}`;
+        return n('insp-dim-rt','Top R m',  p.radiusTop    ?? 0.5, 0.05)
+             + n('insp-dim-rb','Bot R m',  p.radiusBottom ?? 0.5, 0.05)
+             + n('insp-dim-h', 'Height m', p.height       ?? 1);
       case 'sphere':
-        return this._row('Radius', `<input type="number" class="insp-input" id="insp-dim-r" value="${p.radius ?? 0.5}" step="0.05" min="0.01"/>`);
+        return n('insp-dim-r','Radius m', p.radius ?? 0.5, 0.05);
       case 'cone':
-        return `
-          ${this._row('Radius', `<input type="number" class="insp-input" id="insp-dim-r" value="${p.radius ?? 0.5}" step="0.05" min="0.01"/>`)}
-          ${this._row('Height', `<input type="number" class="insp-input" id="insp-dim-h" value="${p.height ?? 1}"   step="0.1"  min="0.01"/>`)}`;
+        return n('insp-dim-r','Radius m', p.radius ?? 0.5, 0.05)
+             + n('insp-dim-h','Height m', p.height ?? 1);
       case 'plane': case 'image-plane':
-        return `
-          ${this._row('Width',  `<input type="number" class="insp-input" id="insp-dim-w" value="${p.width  ?? 2}" step="0.1" min="0.01"/>`)}
-          ${this._row('Height', `<input type="number" class="insp-input" id="insp-dim-h" value="${p.height ?? 2}" step="0.1" min="0.01"/>`)}`;
+        return n('insp-dim-w','Width m',  p.width  ?? 2)
+             + n('insp-dim-h','Height m', p.height ?? 2);
       default: return null;
     }
   },
 
-  _buildFilesSection (obj) {
+  _filesSection (obj) {
     const files = obj.files || [];
-    let listHTML = '';
-    files.forEach((f, i) => {
-      listHTML += `<div class="file-item">
+    let list = files.map((f,i) => `
+      <div class="file-item">
         <span>📎</span>
         <span class="file-item-name">${this._esc(f.name)}</span>
-        <button class="file-remove" data-idx="${i}" title="Remove">✕</button>
-      </div>`;
-    });
-    return this._section('Attachments', `
-      <div class="file-list" id="insp-file-list">${listHTML}</div>
+        <button class="file-remove" data-idx="${i}">✕</button>
+      </div>`).join('');
+    return this._sec('Attachments', `
+      <div class="file-list" id="insp-file-list">${list}</div>
       <button class="insp-btn primary" id="insp-btn-attach" style="margin-top:6px">＋ Attach File</button>
       <input type="file" id="insp-file-input" multiple style="display:none"/>
     `);
@@ -209,7 +215,7 @@ W3D.Inspector = {
       W3D.SceneTree.rebuild();
     });
 
-    /* Position */
+    /* Position / Rotation / Scale */
     ['x','y','z'].forEach(a => {
       document.getElementById(`insp-pos-${a}`)?.addEventListener('input', e => {
         if (mesh) mesh.position[a] = parseFloat(e.target.value) || 0;
@@ -225,15 +231,15 @@ W3D.Inspector = {
     /* Color */
     document.getElementById('insp-color')?.addEventListener('input', e => {
       obj.color = e.target.value;
-      obj.props.color = e.target.value;
+      if (obj.props) obj.props.color = e.target.value;
       if (mesh) W3D.applyColor(mesh, e.target.value);
     });
 
     /* Opacity */
     document.getElementById('insp-opacity')?.addEventListener('input', e => {
       const op = parseFloat(e.target.value);
-      obj.props.opacity = op;
-      mesh?.traverse(c => { if (c.material) c.material.opacity = op; });
+      if (obj.props) obj.props.opacity = op;
+      mesh?.traverse(c => { if (c.material && c.material.transparent) c.material.opacity = op; });
     });
 
     /* Visibility */
@@ -242,21 +248,24 @@ W3D.Inspector = {
       W3D.SceneTree.rebuild();
     });
 
-    /* Dimensions */
-    const dim = (id, key, parser = parseFloat) => {
+    /* Dimension rebuilds */
+    const dim = (id, key) => {
       document.getElementById(id)?.addEventListener('change', e => {
-        obj.props[key] = parser(e.target.value) || obj.props[key];
-        W3D.Factory.rebuildGeometry(obj);
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v) && v > 0) {
+          if (obj.props) obj.props[key] = v;
+          W3D.Factory.rebuildGeometry(obj);
+        }
       });
     };
-    dim('insp-dim-w', 'width');
-    dim('insp-dim-h', 'height');
-    dim('insp-dim-d', 'depth');
-    dim('insp-dim-r', 'radius');
-    dim('insp-dim-rt','radiusTop');
-    dim('insp-dim-rb','radiusBottom');
+    dim('insp-dim-w',  'width');
+    dim('insp-dim-h',  'height');
+    dim('insp-dim-d',  'depth');
+    dim('insp-dim-r',  'radius');
+    dim('insp-dim-rt', 'radiusTop');
+    dim('insp-dim-rb', 'radiusBottom');
 
-    /* Info point */
+    /* Info Point fields */
     document.getElementById('insp-ip-label')?.addEventListener('change', e => {
       obj.props.label = e.target.value;
       obj.name = e.target.value;
@@ -266,14 +275,14 @@ W3D.Inspector = {
       obj.props.description = e.target.value;
     });
 
-    /* Zone label */
+    /* Zone */
     document.getElementById('insp-zone-label')?.addEventListener('change', e => {
       obj.props.label = e.target.value;
       obj.name = e.target.value;
       W3D.SceneTree.rebuild();
     });
 
-    /* 3D label */
+    /* 3D Label */
     document.getElementById('insp-lbl-text')?.addEventListener('change', e => {
       obj.props.text = e.target.value;
       obj.name = 'Label: ' + e.target.value;
@@ -288,13 +297,26 @@ W3D.Inspector = {
     /* Light */
     document.getElementById('insp-light-int')?.addEventListener('input', e => {
       const v = parseFloat(e.target.value) || 1;
-      obj.props.intensity = v;
+      if (obj.props) obj.props.intensity = v;
       if (mesh?.isLight) mesh.intensity = v;
     });
     document.getElementById('insp-light-dist')?.addEventListener('input', e => {
       const v = parseFloat(e.target.value) || 10;
-      obj.props.distance = v;
+      if (obj.props) obj.props.distance = v;
       if (mesh?.isLight) mesh.distance = v;
+    });
+
+    /* Floor line width */
+    document.getElementById('insp-fl-width')?.addEventListener('change', e => {
+      const v = parseFloat(e.target.value) || 0.08;
+      if (obj.props) obj.props.lineWidth = v;
+      // Rebuild floorline
+      if (obj.mesh) { W3D.scene.remove(obj.mesh); W3D.disposeMesh(obj.mesh); }
+      const rebuilt = W3D.Factory.floorLine(obj.props.points, obj.props);
+      if (rebuilt) {
+        W3D.objects.splice(W3D.objects.indexOf(rebuilt), 1); // remove duplicate
+        obj.mesh = rebuilt.mesh;
+      }
     });
 
     /* File attachments */
@@ -302,7 +324,7 @@ W3D.Inspector = {
       document.getElementById('insp-file-input')?.click();
     });
     document.getElementById('insp-file-input')?.addEventListener('change', e => {
-      Array.from(e.target.files).forEach(f => this._attachFile(f, obj));
+      Array.from(e.target.files).forEach(f => this._attach(f, obj));
       e.target.value = '';
     });
     document.querySelectorAll('.file-remove').forEach(btn => {
@@ -313,15 +335,15 @@ W3D.Inspector = {
       });
     });
 
-    /* Action buttons */
+    /* Actions */
     document.getElementById('insp-btn-focus')?.addEventListener('click', () => W3D.Select.focus(obj));
     document.getElementById('insp-btn-dup')?.addEventListener('click',   () => W3D.Select.duplicate(obj));
     document.getElementById('insp-btn-del')?.addEventListener('click',   () => {
-      W3D.Modal.confirm(`Delete "${obj.name}"?`, 'This action cannot easily be undone.', () => W3D.Select.deleteObject(obj));
+      W3D.Modal.confirm(`Delete "${obj.name}"?`, 'This action cannot be undone easily.', () => W3D.Select.deleteObject(obj));
     });
   },
 
-  _attachFile (file, obj) {
+  _attach (file, obj) {
     const reader = new FileReader();
     reader.onload = e => {
       obj.files = obj.files || [];
@@ -332,8 +354,10 @@ W3D.Inspector = {
     reader.readAsDataURL(file);
   },
 
-  /* ── Utilities ── */
   _f   (v) { return parseFloat((+v).toFixed(3)); },
   _deg (r) { return this._f(THREE.MathUtils.radToDeg(r)); },
-  _esc (s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
+  _esc (s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  },
 };

@@ -12,11 +12,11 @@ W3D.initRenderer = function () {
   W3D.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   W3D.renderer.shadowMap.enabled = true;
   W3D.renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
-  W3D.renderer.setClearColor(0xffffff);
+  W3D.renderer.setClearColor(0xf7f5f2);
 
   /* ── Scene ── */
   W3D.scene = new THREE.Scene();
-  W3D.scene.fog = new THREE.FogExp2(0xffffff, 0.006);
+  W3D.scene.fog = new THREE.FogExp2(0xf7f5f2, 0.005);
 
   /* ── Camera ── */
   const { width, height } = viewport.getBoundingClientRect();
@@ -36,6 +36,13 @@ W3D.initRenderer = function () {
   W3D.transformControls = new THREE.TransformControls(W3D.camera, W3D.renderer.domElement);
   W3D.transformControls.addEventListener('dragging-changed', e => {
     W3D.orbitControls.enabled = !e.value;
+    // Track drag so the click event fired after mouseUp is suppressed
+    if (e.value) {
+      W3D._dragActive = true;
+    } else {
+      // Short window to eat the incoming click
+      setTimeout(() => { W3D._dragActive = false; }, 120);
+    }
   });
   W3D.transformControls.addEventListener('change', () => {
     if (W3D.selectedObject) W3D.Inspector.sync();
@@ -46,10 +53,10 @@ W3D.initRenderer = function () {
   W3D.scene.add(W3D.transformControls);
 
   /* ── Lighting ── */
-  const ambient = new THREE.AmbientLight(0x8090a8, 0.5);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.9);
   W3D.scene.add(ambient);
 
-  const sun = new THREE.DirectionalLight(0xfff8f0, 0.85);
+  const sun = new THREE.DirectionalLight(0xfff8f0, 0.6);
   sun.position.set(16, 22, 12);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -61,11 +68,11 @@ W3D.initRenderer = function () {
   sun.shadow.camera.bottom = -50;
   W3D.scene.add(sun);
 
-  const fill = new THREE.HemisphereLight(0x6688cc, 0x442200, 0.35);
+  const fill = new THREE.HemisphereLight(0xd0e0ff, 0xfff0e0, 0.4);
   W3D.scene.add(fill);
 
   /* ── Grid ── */
-  W3D.gridHelper = new THREE.GridHelper(100, 100, 0x2a2e38, 0x1e2230);
+  W3D.gridHelper = new THREE.GridHelper(100, 100, 0xb8b8b8, 0xd8d8d8);
   W3D.scene.add(W3D.gridHelper);
 
   /* ── Invisible ground plane for raycasting ── */
