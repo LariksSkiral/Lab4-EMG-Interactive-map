@@ -19,6 +19,50 @@ W3D.init = async function() {
   if (btn3d)  btn3d.addEventListener('click',  () => W3D.setViewMode && W3D.setViewMode('3d'));
   if (btnTop) btnTop.addEventListener('click', () => W3D.setViewMode && W3D.setViewMode('top'));
 
+  const viewerHelpTrigger = document.getElementById('viewer-help-trigger');
+  const viewerHelpModal = document.getElementById('viewer-help-modal');
+  const viewerHelpClose = document.getElementById('viewer-help-close');
+  const viewerHelpBackdrop = document.getElementById('viewer-help-backdrop');
+
+  if (viewerHelpTrigger && viewerHelpModal) {
+    const openViewerHelp = () => {
+      viewerHelpModal.classList.remove('is-hidden');
+      viewerHelpModal.setAttribute('aria-hidden', 'false');
+      viewerHelpTrigger.setAttribute('aria-expanded', 'true');
+      if (viewerHelpClose) viewerHelpClose.focus();
+    };
+
+    const closeViewerHelp = () => {
+      viewerHelpModal.classList.add('is-hidden');
+      viewerHelpModal.setAttribute('aria-hidden', 'true');
+      viewerHelpTrigger.setAttribute('aria-expanded', 'false');
+      viewerHelpTrigger.focus();
+    };
+
+    viewerHelpTrigger.addEventListener('click', () => {
+      const isOpen = !viewerHelpModal.classList.contains('is-hidden');
+      if (isOpen) {
+        closeViewerHelp();
+        return;
+      }
+      openViewerHelp();
+    });
+
+    if (viewerHelpClose) {
+      viewerHelpClose.addEventListener('click', closeViewerHelp);
+    }
+
+    if (viewerHelpBackdrop) {
+      viewerHelpBackdrop.addEventListener('click', closeViewerHelp);
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !viewerHelpModal.classList.contains('is-hidden')) {
+        closeViewerHelp();
+      }
+    });
+  }
+
   // Step 2: Load your default local model so the scene is not empty at start.
   // Load a local 3D model only when the file is reachable on this deployment.
   const defaultModelPath = 'models/plattegrond.glb';
