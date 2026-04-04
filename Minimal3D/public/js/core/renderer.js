@@ -161,6 +161,15 @@ W3D.initRenderer = function() {
   const gridSize = 120; // 120 units = 120 meters
   const gridDivisions = 240; // 240 divisions across 120 units = 0.5 unit per block
   const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x2a2e38, 0x1e2230);
+  gridHelper.position.y = 0.1;
+  W3D.gridHelper = gridHelper;
+  W3D.setGridVisible = function(visible) {
+    W3D.gridVisible = Boolean(visible);
+    if (W3D.gridHelper) {
+      W3D.gridHelper.visible = W3D.gridVisible;
+    }
+  };
+  W3D.setGridVisible(W3D.gridVisible);
   W3D.scene.add(gridHelper);
 
   // Handle window resize to keep canvas full-screen

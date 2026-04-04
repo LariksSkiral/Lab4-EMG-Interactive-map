@@ -109,6 +109,12 @@ W3D.Factory = {
         machineId: options.machineId || null,
         machineTypeId: options.machineTypeId || null,
         machineTypeLinkId: options.machineTypeLinkId || null,
+        link1: options.link1 || options.courseLink || null,
+        link2: options.link2 || options.maintenanceLink || null,
+        link3: options.link3 || options.safetyLink || null,
+        courseLink: options.courseLink || options.link1 || null,
+        maintenanceLink: options.maintenanceLink || options.link2 || null,
+        safetyLink: options.safetyLink || options.link3 || null,
         storagePath: props.storagePath || '',
         createdFromDatabase: Boolean(options.createdFromDatabase),
       },
@@ -117,6 +123,10 @@ W3D.Factory = {
     };
 
     W3D.objects.push(obj);
+
+    if (!obj.static && !obj.props.createdFromDatabase && W3D.History) {
+      W3D.History.recordAddition(obj);
+    }
 
     // Models that were added manually in the editor should immediately show
     // the unsaved-changes warning until the admin clicks Save.

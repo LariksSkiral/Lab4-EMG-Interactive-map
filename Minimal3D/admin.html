@@ -3,12 +3,12 @@
   Admin page for Minimal3D.
   This page contains management tools such as Supabase model upload and loading.
 -->
-<html lang="en">
+<html lang="nl">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minimal3D Admin</title>
+  <title>Minimal3D Docent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap"
@@ -20,42 +20,42 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="tb-left">
-        <span class="tb-logo">⬡ Minimal3D</span>
-        <span class="tb-scene-name">Admin Mode</span>
+        <span class="tb-logo">⬡ Mechanische Werkplaats</span>
       </div>
       <div class="tb-center">
         <div class="view-toggle">
           <button id="btn-view-3d" class="view-btn active" type="button">3D View</button>
           <button id="btn-view-top" class="view-btn" type="button">Top View</button>
+          <button id="btn-grid-toggle" class="view-btn grid-toggle-btn active" type="button">Grid</button>
         </div>
       </div>
       <div class="tb-right">
-        <span class="tb-badge">Admin</span>
-        <a class="tb-btn" href="index.html">Viewer</a>
-        <a class="tb-btn active" href="admin.html">Admin</a>
-        <button id="btn-save-layout" class="tb-btn tb-btn-save" type="button" disabled>Save</button>
+        <button id="btn-save-layout" class="tb-btn tb-btn-save" type="button" disabled>Opslaan</button>
+        <div class="view-toggle mode-toggle" aria-label="Applicatiemodus">
+          <a class="view-btn" href="index.html">Student</a>
+          <a class="view-btn active" href="admin.html" aria-current="page">Docent</a>
+        </div>
+        <button id="btn-auth-logout" class="tb-btn" type="button">Uitloggen</button>
         <span id="db-status" class="db-status" role="status" aria-live="polite"></span>
-        <button id="btn-auth-logout" class="tb-btn" type="button">Logout</button>
       </div>
     </header>
 
     <section id="login-panel" class="auth-shell">
       <div class="auth-card">
-        <h2>Admin Login</h2>
+        <h2>Docent inloggen</h2>
         <p>
-          Sign in with your Supabase account to unlock admin actions like model upload and management.
+          Log in met je account om modellen te beheren en machineposities aan te passen.
         </p>
 
-        <label class="auth-label" for="auth-email">Email</label>
-        <input id="auth-email" class="auth-input" type="email" placeholder="name@example.com" autocomplete="email">
+        <label class="auth-label" for="auth-email">E-mailadres</label>
+        <input id="auth-email" class="auth-input" type="email" placeholder="naam@voorbeeld.nl" autocomplete="email">
 
-        <label class="auth-label" for="auth-password">Password</label>
-        <input id="auth-password" class="auth-input" type="password" placeholder="Your password"
+        <label class="auth-label" for="auth-password">Wachtwoord</label>
+        <input id="auth-password" class="auth-input" type="password" placeholder="Je wachtwoord"
           autocomplete="current-password">
 
         <div class="auth-row">
-          <button id="btn-auth-login" class="auth-btn" type="button">Login</button>
-          <button id="btn-auth-register" class="auth-btn secondary" type="button">Register</button>
+          <button id="btn-auth-login" class="auth-btn" type="button">Inloggen</button>
         </div>
 
         <div id="auth-error" class="auth-error" role="status" aria-live="polite"></div>
@@ -67,7 +67,7 @@
 
       <!-- Red warning badge shown when the canvas changed after the last save. -->
       <div id="unsaved-alert" class="unsaved-alert is-hidden" role="status" aria-live="polite">
-        Unsaved changes
+        Niet-opgeslagen wijzigingen
       </div>
 
       <!-- 3D scene fills the entire workspace -->
@@ -179,7 +179,7 @@
       </div>
 
       <!-- Figma-style bottom taskbar, floating over the 3D viewport -->
-      <nav class="taskbar" aria-label="Editor tools">
+      <nav class="taskbar" aria-label="Docenthulpmiddelen">
         <!-- Primary: add / upload action -->
         <button id="btn-open-uploader" class="task-btn primary" type="button" title="Voeg nieuwe machine toe">
           <span class="task-icon task-icon-plus">＋</span>
@@ -191,17 +191,17 @@
 
         <!-- Transform tools (disabled until an object is selected) -->
         <div class="taskbar-group">
-          <button id="btn-tool-move" class="task-btn" type="button" title="Move (G)" disabled>
+          <button id="btn-tool-move" class="task-btn" type="button" title="Verplaatsen (G)" disabled>
             <span class="task-icon">⤢</span>
-            <span class="task-label">Move</span>
+            <span class="task-label">Verplaatsen</span>
           </button>
-          <button id="btn-tool-rotate" class="task-btn" type="button" title="Rotate (R)" disabled>
+          <button id="btn-tool-rotate" class="task-btn" type="button" title="Draaien (R)" disabled>
             <span class="task-icon">↻</span>
-            <span class="task-label">Rotate</span>
+            <span class="task-label">Draaien</span>
           </button>
-          <button id="btn-tool-delete" class="task-btn danger" type="button" title="Delete (Delete)" disabled>
+          <button id="btn-tool-delete" class="task-btn danger" type="button" title="Verwijderen (Delete)" disabled>
             <span class="task-icon">✕</span>
-            <span class="task-label">Delete</span>
+            <span class="task-label">Verwijderen</span>
           </button>
         </div>
       </nav>

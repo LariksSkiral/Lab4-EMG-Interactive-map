@@ -57,9 +57,15 @@ W3D.Transform = {
     tc.addEventListener('dragging-changed', e => {
       const wasDragging = this._isDragging;
       this._isDragging = e.value;
+      if (!wasDragging && e.value && W3D.History) {
+        W3D.History.beginTransform(this.selected);
+      }
       if (wasDragging && !e.value) {
         // Browser emits a click after pointerup; suppress it so selection does not clear.
         this._suppressNextClick = true;
+        if (W3D.History) {
+          W3D.History.commitTransform(this.selected);
+        }
       }
       W3D.orbitControls.enabled = !e.value;
     });
@@ -179,6 +185,9 @@ W3D.Transform = {
     this.selected = null;
     this.controls.detach();
     this.mode = null;
+    if (W3D.History) {
+      W3D.History.clearPendingTransform();
+    }
     this._clearHighlight();
     this._updateButtons();
     this._updateInfoStrip();
@@ -191,6 +200,10 @@ W3D.Transform = {
     if (!this.selected) return false;
 
     const objectToDelete = this.selected;
+    const objectIndex = W3D.objects.indexOf(objectToDelete);
+    if (W3D.History) {
+      W3D.History.recordDeletion(objectToDelete, objectIndex);
+    }
     this.deselect();
     W3D.removeObject(objectToDelete);
 
@@ -200,7 +213,7 @@ W3D.Transform = {
 
     if (W3D.Database && typeof W3D.Database.setStatus === 'function') {
       W3D.Database.setStatus(
-        `${objectToDelete.name} was removed from the canvas. Click Save to store this deletion in the database.`
+        `${objectToDelete.name} is uit de kaart verwijderd. Klik op Opslaan om deze wijziging te bewaren.`
       );
     }
 
@@ -298,6 +311,14 @@ W3D.Transform = {
   _onKey(e) {
     // Don't intercept when typing in an input field
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      if (W3D.History) {
+        W3D.History.undo();
+      }
+      return;
+    }
 
     const key = e.key.toLowerCase();
 

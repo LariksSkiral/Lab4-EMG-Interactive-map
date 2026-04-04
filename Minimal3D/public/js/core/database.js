@@ -70,6 +70,12 @@ W3D.Database = {
   _hasLoadedPlacements: false,
   _loadingPlacementsPromise: null,
   _hasUnsavedChanges: false,
+  _saveControlsLocked: true,
+  _statusHideTimer: null,
+
+  _machineLabel(count) {
+    return count === 1 ? 'machinepositie' : 'machineposities';
+  },
 
   // Prepare database-related UI once the page is ready.
   setupUI() {
@@ -91,18 +97,33 @@ W3D.Database = {
   // Enable or disable the Save button.
   // Viewer mode does not have this button, so the checks stay defensive.
   setControlsDisabled(isDisabled) {
-    if (this.ui.saveButton) {
-      this.ui.saveButton.disabled = Boolean(isDisabled);
-    }
+    this._saveControlsLocked = Boolean(isDisabled);
+    this._renderUnsavedState();
   },
 
   // Show status in both the admin topbar and the uploader drawer.
   // Reusing one message keeps feedback consistent no matter which panel is visible.
-  setStatus(message, isError = false) {
+  setStatus(message, isError = false, options = {}) {
+    const autoHideMs = Number.isFinite(options.autoHideMs) ? options.autoHideMs : 3600;
+
+    if (this._statusHideTimer) {
+      window.clearTimeout(this._statusHideTimer);
+      this._statusHideTimer = null;
+    }
+
     if (this.ui.status) {
       this.ui.status.textContent = message || '';
       this.ui.status.classList.toggle('is-error', Boolean(isError));
       this.ui.status.classList.toggle('is-ok', !isError && Boolean(message));
+    }
+
+    if (message && autoHideMs > 0 && this.ui.status) {
+      this._statusHideTimer = window.setTimeout(() => {
+        if (!this.ui.status) return;
+        this.ui.status.textContent = '';
+        this.ui.status.classList.remove('is-error', 'is-ok');
+        this._statusHideTimer = null;
+      }, autoHideMs);
     }
 
     if (W3D.Supabase && typeof W3D.Supabase.setStatus === 'function') {
@@ -125,8 +146,16 @@ W3D.Database = {
 
   // Show or hide the red warning badge in the center-top of the viewport.
   _renderUnsavedState() {
-    if (!this.ui.unsavedAlert) return;
-    this.ui.unsavedAlert.classList.toggle('is-hidden', !this._hasUnsavedChanges);
+    if (this.ui.unsavedAlert) {
+      this.ui.unsavedAlert.classList.toggle('is-hidden', !this._hasUnsavedChanges);
+    }
+
+    if (this.ui.saveButton) {
+      const canSave = !this._saveControlsLocked && this._hasUnsavedChanges;
+      this.ui.saveButton.disabled = !canSave;
+      this.ui.saveButton.classList.toggle('active', canSave);
+      this.ui.saveButton.setAttribute('aria-disabled', canSave ? 'false' : 'true');
+    }
   },
 
   // Ensure we have a Supabase client before any database work starts.
@@ -143,7 +172,7 @@ W3D.Database = {
       return W3D.Supabase.client;
     }
 
-    throw new Error((W3D.Supabase && W3D.Supabase.lastInitError) || 'Supabase client is not ready.');
+    throw new Error((W3D.Supabase && W3D.Supabase.lastInitError) || 'De opslag is op dit moment niet beschikbaar.');
   },
 
   // Read one value from a row while supporting fallback column names.
@@ -254,7 +283,7 @@ W3D.Database = {
     const client = await this._ensureClient();
     const bucket = W3D.Supabase && W3D.Supabase.config ? W3D.Supabase.config.bucket : '';
     if (!bucket) {
-      throw new Error('Supabase storage bucket is not configured.');
+      throw new Error('De opslag is op dit moment niet beschikbaar.');
     }
 
     const rawValue = modelReference ? String(modelReference).trim() : '';
@@ -292,7 +321,7 @@ W3D.Database = {
     }
 
     if (candidates.length === 0) {
-      throw new Error(`Could not create a model URL for reference: ${rawValue || '(empty)'}.`);
+      throw new Error('Een model kon niet worden voorbereid om te laden.');
     }
 
     return {
@@ -320,12 +349,12 @@ W3D.Database = {
     const client = await this._ensureClient();
     const bucket = W3D.Supabase && W3D.Supabase.config ? W3D.Supabase.config.bucket : '';
     if (!bucket) {
-      throw new Error('Supabase storage bucket is not configured.');
+      throw new Error('De opslag is op dit moment niet beschikbaar.');
     }
 
     const normalizedPath = this._normalizeStoragePath(storagePath);
     if (!normalizedPath) {
-      throw new Error('Model storage path is empty.');
+      throw new Error('Er ontbreekt een gekoppeld modelbestand.');
     }
 
     // External non-Supabase URLs can still be loaded directly.
@@ -345,7 +374,7 @@ W3D.Database = {
       return publicData.publicUrl;
     }
 
-    throw new Error((signedError && signedError.message) || `Could not create a storage URL for ${normalizedPath}.`);
+    throw new Error('Het model kon niet worden voorbereid om te laden.');
   },
 
   // Read all machine types and index them by storage path.
@@ -356,7 +385,7 @@ W3D.Database = {
       .select('*');
 
     if (error) {
-      throw new Error(`Could not read machine types: ${error.message}`);
+      throw new Error('De machinegegevens konden niet worden opgehaald.');
     }
 
     const machineTypesByStoragePath = new Map();
@@ -384,7 +413,7 @@ W3D.Database = {
       .select('*');
 
     if (error) {
-      throw new Error(`Could not read machine type links: ${error.message}`);
+      throw new Error('De koppelingen van machines konden niet worden opgehaald.');
     }
 
     const machineTypeLinksByMachineTypeId = new Map();
@@ -403,7 +432,7 @@ W3D.Database = {
     const storagePath = objectEntry && objectEntry.props ? objectEntry.props.storagePath : '';
     const normalizedStoragePath = this._normalizeStoragePath(storagePath);
     if (!storagePath) {
-      throw new Error(`Object "${objectEntry && objectEntry.name ? objectEntry.name : 'unknown'}" has no storage path.`);
+      throw new Error('Een machine mist een gekoppeld modelbestand.');
     }
 
     const existingType = machineTypesByStoragePath.get(normalizedStoragePath) || machineTypesByStoragePath.get(storagePath);
@@ -424,7 +453,7 @@ W3D.Database = {
       .single();
 
     if (error) {
-      throw new Error(`Could not create machine type for ${objectEntry.name}: ${error.message}`);
+      throw new Error('Het type van deze machine kon niet worden opgeslagen.');
     }
 
     machineTypesByStoragePath.set(storagePath, data);
@@ -448,11 +477,11 @@ W3D.Database = {
     });
 
     if (!trimmedName) {
-      throw new Error('Machine name is required.');
+      throw new Error('Vul een naam voor de machine in.');
     }
 
     if (!normalizedStoragePath) {
-      throw new Error('Model storage path is required.');
+      throw new Error('Er ontbreekt een modelbestand voor deze machine.');
     }
 
     const machineTypePayload = {
@@ -467,7 +496,7 @@ W3D.Database = {
       .single();
 
     if (machineTypeError) {
-      throw new Error(`Could not save machine type: ${machineTypeError.message}`);
+      throw new Error('De machine kon niet worden opgeslagen.');
     }
 
     const linkPayload = {
@@ -489,7 +518,7 @@ W3D.Database = {
         .delete()
         .eq(this.columns.machineTypeId, machineTypeRow[this.columns.machineTypeId]);
 
-      throw new Error(`Could not save machine links: ${linkError.message}`);
+      throw new Error('De links van de machine konden niet worden opgeslagen.');
     }
 
     return {
@@ -508,19 +537,19 @@ W3D.Database = {
     let hasUploadedFile = false;
 
     if (!trimmedName) {
-      throw new Error('Machine name is required.');
+      throw new Error('Vul een naam voor de machine in.');
     }
 
     if (!modelFile) {
-      throw new Error('Model file is required.');
+      throw new Error('Kies een 3D-modelbestand.');
     }
 
     if (!/\.(glb|gltf)$/i.test(modelFile.name || '')) {
-      throw new Error('Only .glb or .gltf files are allowed.');
+      throw new Error('Gebruik een .glb- of .gltf-bestand.');
     }
 
     if (!W3D.Supabase || !W3D.Supabase.config || !W3D.Supabase.config.bucket) {
-      throw new Error('Supabase storage bucket is not configured.');
+      throw new Error('De opslag is op dit moment niet beschikbaar.');
     }
 
     try {
@@ -536,10 +565,10 @@ W3D.Database = {
       if (uploadError) {
         const uploadMessage = String(uploadError.message || 'Unknown upload error.');
         if (/networkerror|failed to fetch|fetch resource/i.test(uploadMessage)) {
-          throw new Error('Could not upload model file because the browser could not reach Supabase Storage. Check browser extensions, VPN, firewall, or retry in another browser.');
+          throw new Error('Het modelbestand kon niet worden geüpload. Controleer je verbinding en probeer het opnieuw.');
         }
 
-        throw new Error(`Could not upload model file: ${uploadMessage}`);
+        throw new Error('Het modelbestand kon niet worden geüpload. Probeer het opnieuw.');
       }
 
       hasUploadedFile = true;
@@ -597,7 +626,7 @@ W3D.Database = {
       const machineObjects = this._getPersistableObjects();
 
       this.setControlsDisabled(true);
-      this.setStatus('Saving current machine placements...');
+      this.setStatus('Machineposities worden opgeslagen...', false, { autoHideMs: 0 });
 
       const machineTypesByStoragePath = await this._fetchMachineTypesByStoragePath(client);
       const rowsToInsert = [];
@@ -613,7 +642,7 @@ W3D.Database = {
         .not(this.columns.machineId, 'is', null);
 
       if (deleteError) {
-        throw new Error(`Could not clear old machine placements: ${deleteError.message}`);
+        throw new Error('De bestaande machineposities konden niet worden vernieuwd.');
       }
 
       let insertedRows = [];
@@ -624,7 +653,7 @@ W3D.Database = {
           .select('*');
 
         if (insertError) {
-          throw new Error(`Could not save machine placements: ${insertError.message}`);
+          throw new Error('De machineposities konden niet worden opgeslagen.');
         }
 
         insertedRows = data || [];
@@ -638,13 +667,12 @@ W3D.Database = {
         objectEntry.props.createdFromDatabase = true;
       });
 
-      const noun = rowsToInsert.length === 1 ? 'machine' : 'machines';
       this.clearSceneDirty();
-      this.setStatus(`Saved ${rowsToInsert.length} ${noun} to the database.`);
+      this.setStatus(`${rowsToInsert.length} ${this._machineLabel(rowsToInsert.length)} opgeslagen.`);
       this._hasLoadedPlacements = true;
     } catch (error) {
       console.error('Database save error:', error);
-      this.setStatus(error.message || 'Could not save machine placements.', true);
+      this.setStatus(error.message || 'De machineposities konden niet worden opgeslagen.', true);
     } finally {
       // Re-enable the button when the admin page is allowed to save.
       this.setControlsDisabled(false);
@@ -695,7 +723,7 @@ W3D.Database = {
         .select('*');
 
       if (machineTypeError) {
-        throw new Error(`Could not read machine types: ${machineTypeError.message}`);
+        throw new Error('De machinegegevens konden niet worden opgehaald.');
       }
 
       const machineTypeLinksByMachineTypeId = await this._fetchMachineTypeLinksByMachineTypeId(client);
@@ -711,13 +739,16 @@ W3D.Database = {
         .order(this.columns.machineId, { ascending: true });
 
       if (machineError) {
-        throw new Error(`Could not read saved machines: ${machineError.message}`);
+        throw new Error('De opgeslagen machineposities konden niet worden opgehaald.');
       }
 
       if (!machineRows || machineRows.length === 0) {
         this._hasLoadedPlacements = true;
         this.clearSceneDirty();
-        this.setStatus('No saved machines were found in the database.');
+        if (W3D.History) {
+          W3D.History.clear();
+        }
+        this.setStatus('Er zijn nog geen opgeslagen machineposities gevonden.');
         return;
       }
 
@@ -759,6 +790,12 @@ W3D.Database = {
                 machineId: machineRow[this.columns.machineId] || null,
                 machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
                 machineTypeLinkId: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkId] || null : null,
+                link1: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkOne] || null : null,
+                link2: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkTwo] || null : null,
+                link3: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkThree] || null : null,
+                courseLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkOne] || null : null,
+                maintenanceLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkTwo] || null : null,
+                safetyLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkThree] || null : null,
                 positionX: this._toNumber(
                   this._readRowValue(machineRow, this.columns.machinePositionX, this.readColumns.machinePositionX)
                 ),
@@ -800,14 +837,17 @@ W3D.Database = {
 
       this._hasLoadedPlacements = true;
       this.clearSceneDirty();
+      if (W3D.History) {
+        W3D.History.clear();
+      }
       if (skippedCount > 0) {
-        this.setStatus(`Loaded ${loadedCount} saved machine placements (${skippedCount} skipped).`, true);
+        this.setStatus(`${loadedCount} opgeslagen ${this._machineLabel(loadedCount)} geladen. ${skippedCount} ${skippedCount === 1 ? 'kon' : 'konden'} niet worden getoond.`, true);
       } else {
-        this.setStatus(`Loaded ${loadedCount} saved machine placements.`);
+        this.setStatus(`${loadedCount} opgeslagen ${this._machineLabel(loadedCount)} geladen.`);
       }
     } catch (error) {
       console.error('Database load error:', error);
-      this.setStatus(error.message || 'Could not restore saved machines.', true);
+      this.setStatus(error.message || 'De opgeslagen machineposities konden niet worden geladen.', true);
     }
   },
 };
