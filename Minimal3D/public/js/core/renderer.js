@@ -1,8 +1,8 @@
 /* This file sets up the 3D world in our app. It creates the scene, camera, lights, and grid, and handles drawing everything on screen. We need this to make the 3D graphics work. Without it, there would be no 3D view. For beginners: This is like setting up a movie set with cameras, lights, and props so we can film and show the 3D scene. */
 /* Three.js scene setup, camera, lighting, animation loop - This sets up the 3D world */
-W3D.initRenderer = function() {
+W3D.initRenderer = function () {
   // Get the canvas element from HTML where we'll draw
-  const canvas = document.getElementById('three-canvas');
+  const canvas = document.getElementById("three-canvas");
 
   // Create the WebGL renderer (draws 3D graphics)
   W3D.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -25,7 +25,12 @@ W3D.initRenderer = function() {
   W3D.scene.fog = null;
 
   // ── Perspective camera (3D view) ─────────────────────────────────────────
-  W3D.camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 800);
+  W3D.camera = new THREE.PerspectiveCamera(
+    58,
+    window.innerWidth / window.innerHeight,
+    0.05,
+    800,
+  );
   W3D.camera.position.set(12, 10, 16);
   W3D.camera.lookAt(0, 0, 0);
 
@@ -33,9 +38,12 @@ W3D.initRenderer = function() {
   const aspect = window.innerWidth / window.innerHeight;
   const orthoHalf = 20; // half-height in scene units at default zoom
   W3D.cameraTop = new THREE.OrthographicCamera(
-    -orthoHalf * aspect, orthoHalf * aspect,
-     orthoHalf, -orthoHalf,
-    0.1, 1000
+    -orthoHalf * aspect,
+    orthoHalf * aspect,
+    orthoHalf,
+    -orthoHalf,
+    0.1,
+    1000,
   );
   W3D.cameraTop.position.set(0, 200, 0);
   W3D.cameraTop.lookAt(0, 0, 0);
@@ -43,12 +51,12 @@ W3D.initRenderer = function() {
 
   // Active camera – starts in 3D, toggled by view switcher
   W3D.activeCamera = W3D.camera;
-  W3D.viewMode = '3d'; // '3d' | 'top'
+  W3D.viewMode = "3d"; // '3d' | 'top'
 
   // ── View-switching helper ─────────────────────────────────────────────────
-  W3D.setViewMode = function(mode) {
+  W3D.setViewMode = function (mode) {
     W3D.viewMode = mode;
-    if (mode === 'top') {
+    if (mode === "top") {
       W3D.activeCamera = W3D.cameraTop;
       W3D.scene.fog = null;
       W3D.orbitControls.object = W3D.cameraTop;
@@ -58,12 +66,12 @@ W3D.initRenderer = function() {
       W3D.orbitControls.mouseButtons = {
         LEFT: THREE.MOUSE.PAN,
         MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN
+        RIGHT: THREE.MOUSE.PAN,
       };
       W3D.orbitControls.target.set(
         W3D.orbitControls.target.x,
         0,
-        W3D.orbitControls.target.z
+        W3D.orbitControls.target.z,
       );
     } else {
       W3D.activeCamera = W3D.camera;
@@ -75,7 +83,7 @@ W3D.initRenderer = function() {
       W3D.orbitControls.mouseButtons = {
         LEFT: THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN
+        RIGHT: THREE.MOUSE.PAN,
       };
     }
     W3D.orbitControls.update();
@@ -84,14 +92,17 @@ W3D.initRenderer = function() {
       W3D.Transform.controls.camera = W3D.activeCamera;
     }
     // Update topbar button states
-    const btn3d  = document.getElementById('btn-view-3d');
-    const btnTop = document.getElementById('btn-view-top');
-    if (btn3d)  btn3d.classList.toggle('active', mode === '3d');
-    if (btnTop) btnTop.classList.toggle('active', mode === 'top');
+    const btn3d = document.getElementById("btn-view-3d");
+    const btnTop = document.getElementById("btn-view-top");
+    if (btn3d) btn3d.classList.toggle("active", mode === "3d");
+    if (btnTop) btnTop.classList.toggle("active", mode === "top");
   };
 
   // Add mouse controls to orbit/pan the camera
-  W3D.orbitControls = new THREE.OrbitControls(W3D.camera, W3D.renderer.domElement);
+  W3D.orbitControls = new THREE.OrbitControls(
+    W3D.camera,
+    W3D.renderer.domElement,
+  );
   W3D.orbitControls.enableDamping = true;
   W3D.orbitControls.dampingFactor = 0.07;
   W3D.orbitControls.minPolarAngle = 0.1;
@@ -104,12 +115,12 @@ W3D.initRenderer = function() {
 
   function clampViewAboveFloor() {
     // Only apply floor clamp in 3D perspective mode
-    if (W3D.viewMode !== '3d') return;
+    if (W3D.viewMode !== "3d") return;
     const target = W3D.orbitControls.target;
     const delta = Math.max(
       floorY - target.y,
       floorY + floorEpsilon - W3D.camera.position.y,
-      0
+      0,
     );
     if (delta > 0) {
       target.y += delta;
@@ -160,10 +171,15 @@ W3D.initRenderer = function() {
   // 1 unit = 1 meter (matching Blender scale), each grid block = 0.5 units (0.5m)
   const gridSize = 120; // 120 units = 120 meters
   const gridDivisions = 240; // 240 divisions across 120 units = 0.5 unit per block
-  const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x2a2e38, 0x1e2230);
+  const gridHelper = new THREE.GridHelper(
+    gridSize,
+    gridDivisions,
+    0x2a2e38,
+    0x1e2230,
+  );
   gridHelper.position.y = 0.1;
   W3D.gridHelper = gridHelper;
-  W3D.setGridVisible = function(visible) {
+  W3D.setGridVisible = function (visible) {
     W3D.gridVisible = Boolean(visible);
     if (W3D.gridHelper) {
       W3D.gridHelper.visible = W3D.gridVisible;
@@ -174,21 +190,22 @@ W3D.initRenderer = function() {
 
   // Handle window resize to keep canvas full-screen
   function onResize() {
-    const w = window.innerWidth, h = window.innerHeight;
+    const w = window.innerWidth,
+      h = window.innerHeight;
     W3D.renderer.setSize(w, h);
     // Update perspective camera
     W3D.camera.aspect = w / h;
     W3D.camera.updateProjectionMatrix();
     // Update orthographic camera
     const a = w / h;
-    const oh = orthoHalf * (W3D.cameraTop.zoom || 1 );
-    W3D.cameraTop.left   = -oh * a;
-    W3D.cameraTop.right  =  oh * a;
-    W3D.cameraTop.top    =  oh;
+    const oh = orthoHalf * (W3D.cameraTop.zoom || 1);
+    W3D.cameraTop.left = -oh * a;
+    W3D.cameraTop.right = oh * a;
+    W3D.cameraTop.top = oh;
     W3D.cameraTop.bottom = -oh;
     W3D.cameraTop.updateProjectionMatrix();
   }
-  window.addEventListener('resize', onResize);
+  window.addEventListener("resize", onResize);
   onResize();
 
   // Animation loop - runs every frame to update and draw
@@ -198,4 +215,51 @@ W3D.initRenderer = function() {
     clampViewAboveFloor();
     W3D.renderer.render(W3D.scene, W3D.activeCamera);
   })();
+};
+
+// ── Camera focus helper ─────────────────────────────────────────────
+W3D.focusCameraOnObject = function (objectEntry) {
+  if (!objectEntry || !objectEntry.mesh) return;
+
+  const mesh = objectEntry.mesh;
+
+  // Bereken bounding box van object
+  const box = new THREE.Box3().setFromObject(mesh);
+  if (box.isEmpty()) return;
+
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  // Zorg dat OrbitControls target op het object staat
+  if (W3D.orbitControls) {
+    W3D.orbitControls.target.copy(center);
+  }
+
+  // ── 3D view ───────────────────────────────────────────────────────
+  if (W3D.viewMode === "3d") {
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+    // afstand van camera tot object
+    const distance = maxDim * 2.5;
+
+    const direction = new THREE.Vector3(1, 0.6, 1).normalize();
+
+    const newPos = center.clone().add(direction.multiplyScalar(distance));
+
+    W3D.camera.position.copy(newPos);
+    W3D.camera.lookAt(center);
+  }
+
+  // ── Top view ──────────────────────────────────────────────────────
+  if (W3D.viewMode === "top") {
+    W3D.cameraTop.position.set(center.x, 200, center.z);
+    W3D.cameraTop.lookAt(center.x, 0, center.z);
+  }
+
+  if (W3D.orbitControls) {
+    W3D.orbitControls.update();
+  }
 };
