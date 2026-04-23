@@ -53,6 +53,15 @@ W3D.initRenderer = function () {
   W3D.activeCamera = W3D.camera;
   W3D.viewMode = "3d"; // '3d' | 'top'
 
+  // ── Smooth camera focus state ────────────────────────────────────────────
+  W3D.cameraFocus = {
+    active: false,
+    speed: 0.08, // lager = rustiger, hoger = sneller
+    targetPosition: new THREE.Vector3(),
+    targetLookAt: new THREE.Vector3(),
+    topZoom: null,
+  };
+
   // ── View-switching helper ─────────────────────────────────────────────────
   W3D.setViewMode = function (mode) {
     W3D.viewMode = mode;
@@ -91,130 +100,96 @@ W3D.initRenderer = function () {
     if (W3D.Transform && W3D.Transform.controls) {
       W3D.Transform.controls.camera = W3D.activeCamera;
     }
-    // Update topbar button states
-    const btn3d = document.getElementById("btn-view-3d");
-    const btnTop = document.getElementById("btn-view-top");
-    if (btn3d) btn3d.classList.toggle("active", mode === "3d");
-    if (btnTop) btnTop.classList.toggle("active", mode === "top");
   };
 
-  // Add mouse controls to orbit/pan the camera
+  // Orbit controls
   W3D.orbitControls = new THREE.OrbitControls(
-    W3D.camera,
+    W3D.activeCamera,
     W3D.renderer.domElement,
   );
   W3D.orbitControls.enableDamping = true;
-  W3D.orbitControls.dampingFactor = 0.07;
-  W3D.orbitControls.minPolarAngle = 0.1;
-  W3D.orbitControls.maxPolarAngle = Math.PI / 2.1;
-  W3D.orbitControls.minDistance = 0.5;
-  W3D.orbitControls.maxDistance = 200;
+  W3D.orbitControls.dampingFactor = 0.08;
+  W3D.orbitControls.target.set(0, 0, 0);
+  W3D.orbitControls.update();
 
-  const floorY = 0;
-  const floorEpsilon = 0.05;
-
-  function clampViewAboveFloor() {
-    // Only apply floor clamp in 3D perspective mode
-    if (W3D.viewMode !== "3d") return;
-    const target = W3D.orbitControls.target;
-    const delta = Math.max(
-      floorY - target.y,
-      floorY + floorEpsilon - W3D.camera.position.y,
-      0,
-    );
-    if (delta > 0) {
-      target.y += delta;
-      W3D.camera.position.y += delta;
-    }
-  }
-
-  // Lighting setup (indoor mechanic workshop)
-  // 1) Very soft base light so shadows never become fully black.
-  const ambient = new THREE.AmbientLight(0xf4f6f8, 0.34);
+  // Basic lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 0.7);
   W3D.scene.add(ambient);
 
-  // 2) Ceiling fixtures: these replace sunlight and sky lighting.
-  // We place a simple grid of indoor lights to mimic workshop luminaires.
-  const ceilingLights = [
-    [-18, 6.5, -18],
-    [0, 6.5, -18],
-    [18, 6.5, -18],
-    [-18, 6.5, 0],
-    [0, 6.5, 0],
-    [18, 6.5, 0],
-    [-18, 6.5, 18],
-    [0, 6.5, 18],
-    [18, 6.5, 18],
-  ];
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  dirLight.position.set(10, 16, 8);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.width = 2048;
+  dirLight.shadow.mapSize.height = 2048;
+  W3D.scene.add(dirLight);
 
-  ceilingLights.forEach((position, index) => {
-    // Slightly cool white typical for workshop LED/fluorescent tubes.
-    const fixture = new THREE.PointLight(0xf8fbff, 0.78, 38, 2);
-    fixture.position.set(position[0], position[1], position[2]);
+  // Grid
+  W3D.gridHelper = new THREE.GridHelper(80, 80, 0xd7d2cb, 0xe8e3db);
+  W3D.scene.add(W3D.gridHelper);
 
-    // Only let a few fixtures cast shadows to keep performance smooth.
-    const shouldCastShadows = index === 1 || index === 4 || index === 7;
-    fixture.castShadow = shouldCastShadows;
-    if (shouldCastShadows) {
-      fixture.shadow.mapSize.set(2048, 2048);
-      // Normal bias is the most important setting to reduce diagonal striping (shadow acne).
-      fixture.shadow.normalBias = 0.02;
-      fixture.shadow.bias = -0.00002;
-      fixture.shadow.camera.near = 0.5;
-      fixture.shadow.camera.far = 25;
-    }
+  // Resize handling
+  window.addEventListener("resize", () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const aspectNow = width / height;
 
-    W3D.scene.add(fixture);
+    W3D.camera.aspect = aspectNow;
+    W3D.camera.updateProjectionMatrix();
+
+    W3D.cameraTop.left = -orthoHalf * aspectNow;
+    W3D.cameraTop.right = orthoHalf * aspectNow;
+    W3D.cameraTop.top = orthoHalf;
+    W3D.cameraTop.bottom = -orthoHalf;
+    W3D.cameraTop.updateProjectionMatrix();
+
+    W3D.renderer.setSize(width, height);
   });
 
-  // Add a grid on the ground for reference
-  // 1 unit = 1 meter (matching Blender scale), each grid block = 0.5 units (0.5m)
-  const gridSize = 120; // 120 units = 120 meters
-  const gridDivisions = 240; // 240 divisions across 120 units = 0.5 unit per block
-  const gridHelper = new THREE.GridHelper(
-    gridSize,
-    gridDivisions,
-    0x2a2e38,
-    0x1e2230,
-  );
-  gridHelper.position.y = 0.1;
-  W3D.gridHelper = gridHelper;
-  W3D.setGridVisible = function (visible) {
-    W3D.gridVisible = Boolean(visible);
-    if (W3D.gridHelper) {
-      W3D.gridHelper.visible = W3D.gridVisible;
-    }
-  };
-  W3D.setGridVisible(W3D.gridVisible);
-  W3D.scene.add(gridHelper);
+  W3D.renderer.setSize(window.innerWidth, window.innerHeight);
 
-  // Handle window resize to keep canvas full-screen
-  function onResize() {
-    const w = window.innerWidth,
-      h = window.innerHeight;
-    W3D.renderer.setSize(w, h);
-    // Update perspective camera
-    W3D.camera.aspect = w / h;
-    W3D.camera.updateProjectionMatrix();
-    // Update orthographic camera
-    const a = w / h;
-    const oh = orthoHalf * (W3D.cameraTop.zoom || 1);
-    W3D.cameraTop.left = -oh * a;
-    W3D.cameraTop.right = oh * a;
-    W3D.cameraTop.top = oh;
-    W3D.cameraTop.bottom = -oh;
-    W3D.cameraTop.updateProjectionMatrix();
-  }
-  window.addEventListener("resize", onResize);
-  onResize();
-
-  // Animation loop - runs every frame to update and draw
-  (function animate() {
+  // Animation loop
+  const animate = () => {
     requestAnimationFrame(animate);
+
+    // Smooth focus animation
+    if (W3D.cameraFocus && W3D.cameraFocus.active) {
+      const focus = W3D.cameraFocus;
+      const cam = W3D.viewMode === "top" ? W3D.cameraTop : W3D.camera;
+
+      cam.position.lerp(focus.targetPosition, focus.speed);
+      W3D.orbitControls.target.lerp(focus.targetLookAt, focus.speed);
+
+      if (W3D.viewMode === "top" && typeof focus.topZoom === "number") {
+        cam.zoom = THREE.MathUtils.lerp(cam.zoom, focus.topZoom, focus.speed);
+        cam.updateProjectionMatrix();
+      }
+
+      const posDone = cam.position.distanceTo(focus.targetPosition) < 0.05;
+      const targetDone =
+        W3D.orbitControls.target.distanceTo(focus.targetLookAt) < 0.05;
+      const zoomDone =
+        W3D.viewMode !== "top" || typeof focus.topZoom !== "number"
+          ? true
+          : Math.abs(cam.zoom - focus.topZoom) < 0.01;
+
+      if (posDone && targetDone && zoomDone) {
+        cam.position.copy(focus.targetPosition);
+        W3D.orbitControls.target.copy(focus.targetLookAt);
+
+        if (W3D.viewMode === "top" && typeof focus.topZoom === "number") {
+          cam.zoom = focus.topZoom;
+          cam.updateProjectionMatrix();
+        }
+
+        focus.active = false;
+      }
+    }
+
     W3D.orbitControls.update();
-    clampViewAboveFloor();
     W3D.renderer.render(W3D.scene, W3D.activeCamera);
-  })();
+  };
+
+  animate();
 };
 
 // ── Camera focus helper ─────────────────────────────────────────────
@@ -222,8 +197,6 @@ W3D.focusCameraOnObject = function (objectEntry) {
   if (!objectEntry || !objectEntry.mesh) return;
 
   const mesh = objectEntry.mesh;
-
-  // Bereken bounding box van object
   const box = new THREE.Box3().setFromObject(mesh);
   if (box.isEmpty()) return;
 
@@ -233,33 +206,41 @@ W3D.focusCameraOnObject = function (objectEntry) {
   const size = new THREE.Vector3();
   box.getSize(size);
 
-  // Zorg dat OrbitControls target op het object staat
-  if (W3D.orbitControls) {
-    W3D.orbitControls.target.copy(center);
+  if (!W3D.cameraFocus) {
+    W3D.cameraFocus = {
+      active: false,
+      speed: 0.08,
+      targetPosition: new THREE.Vector3(),
+      targetLookAt: new THREE.Vector3(),
+      topZoom: null,
+    };
   }
 
-  // ── 3D view ───────────────────────────────────────────────────────
+  W3D.cameraFocus.targetLookAt.copy(center);
+  W3D.cameraFocus.topZoom = null;
+
+  // 3D view
   if (W3D.viewMode === "3d") {
-    const maxDim = Math.max(size.x, size.y, size.z);
+    const maxDim = Math.max(size.x, size.y, size.z, 1);
+    const distance = Math.max(4, maxDim * 2.8);
+    const direction = new THREE.Vector3(1, 0.65, 1).normalize();
 
-    // afstand van camera tot object
-    const distance = maxDim * 2.5;
-
-    const direction = new THREE.Vector3(1, 0.6, 1).normalize();
-
-    const newPos = center.clone().add(direction.multiplyScalar(distance));
-
-    W3D.camera.position.copy(newPos);
-    W3D.camera.lookAt(center);
+    const desiredPosition = center
+      .clone()
+      .add(direction.multiplyScalar(distance));
+    W3D.cameraFocus.targetPosition.copy(desiredPosition);
+    W3D.cameraFocus.active = true;
+    return;
   }
 
-  // ── Top view ──────────────────────────────────────────────────────
+  // Top view
   if (W3D.viewMode === "top") {
-    W3D.cameraTop.position.set(center.x, 200, center.z);
-    W3D.cameraTop.lookAt(center.x, 0, center.z);
-  }
+    const desiredHeight = W3D.cameraTop.position.y;
+    W3D.cameraFocus.targetPosition.set(center.x, desiredHeight, center.z);
 
-  if (W3D.orbitControls) {
-    W3D.orbitControls.update();
+    const maxDim = Math.max(size.x, size.z, 1);
+    const desiredZoom = THREE.MathUtils.clamp(24 / (maxDim + 6), 0.8, 2.4);
+    W3D.cameraFocus.topZoom = desiredZoom;
+    W3D.cameraFocus.active = true;
   }
 };
