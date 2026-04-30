@@ -164,13 +164,46 @@ W3D.Factory = {
     const loader = new THREE.GLTFLoader(); // Loader for GLTF models
     return new Promise((resolve, reject) => {
       loader.load(path, gltf => {
+        const model = gltf.scene;
         const obj = this._registerLoadedModel(
-          gltf.scene,
+          model,
           'gltf',
           path.split('/').pop().replace(/\.(glb|gltf)$/i, ''),
           { filepath: path },
           { static: true }
         );
+        // The floor plan is a solid slab; after _groundModel the bottom is at y=0
+        // and the top surface is at y=thickness. Shift it down so the top is flush
+        // with y=0 (the grid/floor level).
+        if (path.toLowerCase().includes('plattegrond')) {
+          const box = new THREE.Box3().setFromObject(model);
+          model.position.y -= box.max.y;
+
+          const matOverrides = {
+            'plattegrond': { color: 0xffffff /*, roughness: 0.8, metalness: 0.0, opacity: 1.0 },
+            'olieopslag':  { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            'richtlijnen': { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            'zebrapad':    { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            'Zone 1':      { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            'Zone 2':      { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            'Zone 3':      { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            'Zone 4':      { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            'Zone 5':      { /* color: 0xffffff, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+          };
+          gltf.scene.traverse(child => {
+            if (!child.isMesh) return;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              const overrides = matOverrides[mat.name];
+              if (!overrides) return;
+              if (overrides.color     !== undefined) mat.color.set(overrides.color);
+              if (overrides.roughness !== undefined) mat.roughness = overrides.roughness;
+              if (overrides.metalness !== undefined) mat.metalness = overrides.metalness;
+              if (overrides.opacity   !== undefined) { mat.opacity = overrides.opacity; mat.transparent = overrides.opacity < 1; }
+              mat.needsUpdate = true;
+            });
+          });
+        }
         resolve(obj);
       }, undefined, err => {
         console.error('Failed to load local model:', err); // Log errors
