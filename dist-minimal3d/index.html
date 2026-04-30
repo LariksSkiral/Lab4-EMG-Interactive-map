@@ -4,44 +4,108 @@
   This page focuses on navigation and model viewing.
   Upload/admin actions are moved to admin.html.
 -->
-<html lang="en">
+<html lang="nl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minimal3D Viewer</title>
+  <title>Minimal3D Student</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" crossorigin href="/assets/ui-Bc4sIQkW.css">
+  <link rel="stylesheet" crossorigin href="/assets/ui-BwlOxddV.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="tb-left">
-        <span class="tb-logo">⬡ Minimal3D</span>
-        <span class="tb-scene-name">Viewer Mode</span>
+        <span class="tb-logo">⬡ Mechanische Werkplaats</span>
       </div>
       <div class="tb-right">
-        <span class="tb-badge">Guest</span>
-        <a class="tb-btn active" href="index.html">Viewer</a>
-        <a class="tb-btn" href="admin.html">Admin</a>
+        <div class="view-toggle mode-toggle" aria-label="Applicatiemodus">
+          <a class="view-btn active" href="index.html" aria-current="page">Student</a>
+          <a class="view-btn" href="admin.html">Docent</a>
+        </div>
       </div>
     </header>
 
     <main class="main-stage">
       <canvas id="three-canvas"></canvas>
 
-      <section class="floating-card" aria-label="Viewer instructions">
-        <h2>3D Viewer</h2>
-        <p>
-          Use mouse drag to rotate, scroll to zoom, and right-click drag to pan.
-          Open Admin to upload models and load files from Supabase storage.
-        </p>
-        <div class="floating-row">
-          <span class="chip">Orbit Controls</span>
-          <span class="chip">GLB Ready</span>
-          <span class="chip">Supabase Linked</span>
-        </div>
-      </section>
+      <button
+        id="viewer-help-trigger"
+        class="viewer-help-trigger"
+        type="button"
+        aria-label="Open hulp voor bediening"
+        aria-haspopup="dialog"
+        aria-controls="viewer-help-modal"
+        aria-expanded="false"
+      >
+        ?
+      </button>
+
+      <div id="viewer-help-modal" class="viewer-help-modal is-hidden" aria-hidden="true">
+        <div id="viewer-help-backdrop" class="viewer-help-backdrop"></div>
+        <section
+          class="viewer-help-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="viewer-help-title"
+          aria-describedby="viewer-help-description"
+        >
+          <button id="viewer-help-close" class="viewer-help-close" type="button" aria-label="Sluit hulp">
+            ✕
+          </button>
+
+          <p class="viewer-help-eyebrow">Snelle hulp</p>
+          <h2 id="viewer-help-title">Zo gebruik je de 3D-kaart</h2>
+          <p id="viewer-help-description" class="viewer-help-copy">
+            Gebruik deze eenvoudige muisbediening om rustig door de ruimte te bewegen, ook als dit je eerste keer is in de 3D-kaart.
+          </p>
+
+          <div class="viewer-help-grid">
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">⟲</span>
+              <div>
+                <h3>Draaien</h3>
+                <p>Klik met de linkermuisknop en sleep om de camera te draaien en rond te kijken.</p>
+              </div>
+            </article>
+
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">✥</span>
+              <div>
+                <h3>Verplaatsen</h3>
+                <p>Klik met de rechtermuisknop en sleep om over de kaart te schuiven zonder van hoogte te veranderen.</p>
+              </div>
+            </article>
+
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">⇅</span>
+              <div>
+                <h3>Zoom</h3>
+                <p>Scroll omhoog of omlaag om dichterbij te komen of juist meer overzicht te krijgen.</p>
+              </div>
+            </article>
+
+            <article class="viewer-help-card">
+              <span class="viewer-help-icon">⟷</span>
+              <div>
+                <h3>Slepen</h3>
+                <p>Klik, houd vast en beweeg eerst rustig. Kleine bewegingen geven meer controle.</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="viewer-help-tip">
+            <strong>Tip:</strong> Gebruik je een trackpad? Probeer dan met twee vingers te slepen om te verplaatsen en knijp om te zoomen.
+          </div>
+        </section>
+      </div>
+
+      <div id="machine-action-icons" class="machine-action-icons is-hidden" aria-label="Machine-acties">
+        <button type="button" data-action="course" class="action-icon" title="Leerstof">📘</button>
+        <button type="button" data-action="maintenance" class="action-icon" title="Onderhoud">⚙️</button>
+        <button type="button" data-action="safety" class="action-icon" title="Veiligheid">⚠️</button>
+      </div>
     </main>
   </div>
 
@@ -63,6 +127,7 @@
   <script src="js/core/renderer.js"></script>
   <script src="js/objects/factory.js"></script>
   <script src="supabase.js"></script>
+  <script src="js/core/database.js"></script>
   <script src="js/core/main.js"></script>
 </body>
 </html>
