@@ -39,6 +39,9 @@ W3D.Supabase = {
 		status: null,
 	},
 
+	// Optional callback for the admin UI to open the edit form for one library item.
+	onEditMachineTypeRequested: null,
+
 	// Read an environment value and clean it.
 	// Why this is needed:
 	// - In development, Vite replaces placeholders like %VITE_SUPABASE_URL%.
@@ -76,7 +79,109 @@ W3D.Supabase = {
 
 	// Convert the current folder setting into a friendly label for status messages.
 	_getFolderLabel() {
-		return this.config.folder ? `folder "${this.config.folder}"` : 'bucket root';
+		return this.config.folder ? `map "${this.config.folder}"` : 'de hoofdmap';
+	},
+
+	_friendlyStorageError(error, fallbackMessage) {
+		const rawMessage = String((error && error.message) || '').toLowerCase();
+
+		if (!rawMessage) return fallbackMessage;
+		if (rawMessage.includes('network') || rawMessage.includes('fetch')) {
+			return 'Er kon geen verbinding worden gemaakt met de opslag. Probeer het opnieuw.';
+		}
+		if (rawMessage.includes('permission') || rawMessage.includes('not authorized') || rawMessage.includes('unauthorized')) {
+			return 'Je hebt geen toegang tot deze actie. Log opnieuw in en probeer het nog eens.';
+		}
+		if (rawMessage.includes('bucket')) {
+			return 'De opslag is op dit moment niet beschikbaar.';
+		}
+
+		return fallbackMessage;
+	},
+
+	_normalizeStoragePath(pathValue) {
+		if (!pathValue) return '';
+
+		if (W3D.Database && typeof W3D.Database._normalizeStoragePath === 'function') {
+			return W3D.Database._normalizeStoragePath(pathValue);
+		}
+
+		return String(pathValue).trim().replace(/^\/+/, '');
+	},
+
+	_getFileNameFromPath(pathValue) {
+		const normalizedPath = this._normalizeStoragePath(pathValue);
+		if (!normalizedPath) return '';
+		const pathParts = normalizedPath.split('/').filter(Boolean);
+		return pathParts.length ? pathParts[pathParts.length - 1] : normalizedPath;
+	},
+
+	async _fetchMachineTypeLibraryEntries() {
+		if (!this.client) return new Map();
+
+		const { data: machineTypes, error: machineTypesError } = await this.client
+			.from('machine_types')
+			.select('id, name, model');
+
+		if (machineTypesError) {
+			console.warn('Machine types could not be loaded for the model library:', machineTypesError);
+			return new Map();
+		}
+
+		const { data: machineTypeLinks, error: machineTypeLinksError } = await this.client
+			.from('machine_type_links')
+			.select('machine_type_id, course_url, maintenance_url, safety_url');
+
+		if (machineTypeLinksError) {
+			console.warn('Machine type links could not be loaded for the model library:', machineTypeLinksError);
+			return new Map();
+		}
+
+		const linksByMachineTypeId = new Map();
+		(machineTypeLinks || []).forEach(row => {
+			const machineTypeId = row && row.machine_type_id != null ? row.machine_type_id : null;
+			if (machineTypeId == null) return;
+			linksByMachineTypeId.set(machineTypeId, {
+				link1: row.course_url || '',
+				link2: row.maintenance_url || '',
+				link3: row.safety_url || '',
+			});
+		});
+
+		const entriesByStoragePath = new Map();
+		(machineTypes || []).forEach(row => {
+			const storagePath = row && row.model ? String(row.model).trim() : '';
+			const machineName = row && row.name ? String(row.name).trim() : '';
+			const fileName = this._getFileNameFromPath(storagePath);
+			const machineTypeId = row && row.id != null ? row.id : null;
+			const machineLinks = machineTypeId != null
+				? (linksByMachineTypeId.get(machineTypeId) || { link1: '', link2: '', link3: '' })
+				: { link1: '', link2: '', link3: '' };
+
+			if (!storagePath) return;
+
+			const entry = {
+				machineTypeId,
+				name: machineName || fileName || storagePath,
+				storagePath,
+				link1: machineLinks.link1,
+				link2: machineLinks.link2,
+				link3: machineLinks.link3,
+			};
+
+			entriesByStoragePath.set(storagePath, entry);
+
+			const normalizedPath = this._normalizeStoragePath(storagePath);
+			if (normalizedPath) {
+				entriesByStoragePath.set(normalizedPath, entry);
+			}
+
+			if (fileName) {
+				entriesByStoragePath.set(fileName, entry);
+			}
+		});
+
+		return entriesByStoragePath;
 	},
 
 	// Show a human-friendly message in the UI panel.
@@ -90,6 +195,7 @@ W3D.Supabase = {
 
 		// Toggle error styling class (is-error gives red background in new CSS).
 		this.ui.status.classList.toggle('is-error', Boolean(isError));
+		this.ui.status.classList.toggle('is-ok', !isError && Boolean(message));
 	},
 
 	// Enable or disable the storage action buttons.
@@ -136,7 +242,7 @@ W3D.Supabase = {
 		// Lock controls at first.
 		// We only unlock them after Supabase is connected.
 		this.setControlsDisabled(true);
-		this.setStatus('Preparing Supabase connection...');
+		this.setStatus('Verbinding met de opslag voorbereiden...');
 
 		// ── File selection via file input change ──────────────────────────────
 		if (this.ui.fileInput) {
@@ -277,7 +383,7 @@ W3D.Supabase = {
 
 		// These 3 values are required to connect and use Storage.
 		if (!this.config.url || !this.config.anonKey || !this.config.bucket) {
-			this.lastInitError = 'Supabase settings are missing in the served page. Make sure you started Minimal3D with npm run dev:minimal3d and then refreshed the browser.';
+			this.lastInitError = 'De opslag voor deze omgeving is nog niet volledig ingesteld. Neem contact op met de beheerder.';
 			// Give clear beginner-friendly setup message.
 			this.setStatus(this.lastInitError, true);
 			// Stop here until config is fixed.
@@ -286,7 +392,7 @@ W3D.Supabase = {
 
 		// The Supabase library exposes createClient via the global "supabase" object.
 		if (!window.supabase || !window.supabase.createClient) {
-			this.lastInitError = 'Supabase browser library did not load. Check your internet connection or CDN blocking.';
+			this.lastInitError = 'De opslagservice kon niet worden geladen. Controleer je verbinding en probeer het opnieuw.';
 			// This means CDN script did not load or loaded incorrectly.
 			this.setStatus(this.lastInitError, true);
 			return;
@@ -300,7 +406,7 @@ W3D.Supabase = {
 		this.setControlsDisabled(false);
 
 		// Let user know connection worked.
-		this.setStatus(`Supabase connected. Fetching files from ${this._getFolderLabel()}...`);
+		this.setStatus(`Opslag verbonden. Modellen worden opgehaald uit ${this._getFolderLabel()}...`);
 
 		// Immediately fetch files so dropdown is ready.
 		await this.listFilesAndPopulateDropdown();
@@ -309,7 +415,7 @@ W3D.Supabase = {
 	// Subscribe to auth state changes (SIGNED_IN, SIGNED_OUT, etc.).
 	onAuthStateChange(callback) {
 		if (!this.client) {
-			this.lastInitError = 'Supabase client is not ready for auth state listening.';
+			this.lastInitError = 'De inlogservice is op dit moment niet beschikbaar.';
 			console.error('Supabase auth listener error:', this.lastInitError);
 			return null;
 		}
@@ -327,7 +433,7 @@ W3D.Supabase = {
 	async uploadSelectedFile() {
 		// Guard: cannot upload if client is not initialized yet.
 		if (!this.client) {
-			this.setStatus(this.lastInitError || 'Supabase is still connecting. Wait a moment and try again.', true);
+			this.setStatus(this.lastInitError || 'De opslag wordt nog verbonden. Probeer het zo opnieuw.', true);
 			return;
 		}
 
@@ -338,14 +444,14 @@ W3D.Supabase = {
 
 		// Guard: no file selected.
 		if (!file) {
-			this.setStatus('Please choose a .glb file before uploading.', true);
+			this.setStatus('Kies eerst een .glb- of .gltf-bestand.', true);
 			return;
 		}
 
 		// Only allow .glb or .gltf names for this project flow.
 		const isModelFile = /\.(glb|gltf)$/i.test(file.name);
 		if (!isModelFile) {
-			this.setStatus('Only .glb or .gltf files are allowed for this upload.', true);
+			this.setStatus('Alleen .glb- en .gltf-bestanden kunnen hier worden gebruikt.', true);
 			return;
 		}
 
@@ -353,7 +459,7 @@ W3D.Supabase = {
 		const storagePath = this._buildStoragePath(file.name);
 
 		// Show upload-in-progress message.
-		this.setStatus(`Uploading ${file.name} to ${this._getFolderLabel()}...`);
+		this.setStatus(`${file.name} wordt geüpload naar ${this._getFolderLabel()}...`);
 
 		// Send file to Supabase Storage bucket.
 		const { data, error } = await this.client.storage
@@ -369,7 +475,7 @@ W3D.Supabase = {
 
 		// If Supabase returns an error, show it in UI.
 		if (error) {
-			this.setStatus(`Upload failed: ${error.message}`, true);
+			this.setStatus(this._friendlyStorageError(error, 'Het uploaden van het bestand is niet gelukt.'), true);
 			console.error('Supabase upload error:', error);
 			return;
 		}
@@ -380,7 +486,7 @@ W3D.Supabase = {
 
 		// Upload succeeded — clear the file selection so it's ready for the next upload.
 		this._clearSelectedFile();
-		this.setStatus(`Upload complete: ${file.name}. Refreshing files from ${this._getFolderLabel()}...`);
+		this.setStatus(`${file.name} is geüpload. De modellenlijst wordt vernieuwd...`);
 
 		// Refresh list so newly uploaded file appears immediately in the library.
 		await this.listFilesAndPopulateDropdown();
@@ -390,7 +496,7 @@ W3D.Supabase = {
 	async listFilesAndPopulateDropdown() {
 		// Guard: if not connected, skip silently.
 		if (!this.client) {
-			this.setStatus(this.lastInitError || 'Supabase is not ready yet.', true);
+			this.setStatus(this.lastInitError || 'De opslag is op dit moment niet beschikbaar.', true);
 			return;
 		}
 
@@ -407,13 +513,29 @@ W3D.Supabase = {
 
 		// Show user-facing error if listing failed.
 		if (error) {
-			this.setStatus(`Could not list files: ${error.message}`, true);
+			this.setStatus(this._friendlyStorageError(error, 'De modellenlijst kon niet worden opgehaald.'), true);
 			console.error('Supabase list error:', error);
 			return;
 		}
 
 		// Keep only 3D model files we care about.
 		const glbFiles = (data || []).filter(item => /\.(glb|gltf)$/i.test(item.name || ''));
+		const machineTypeEntriesByStoragePath = await this._fetchMachineTypeLibraryEntries();
+		const getMachineTypeEntry = (item) => {
+			const filePath = folder ? `${folder}/${item.name}` : item.name;
+			const normalizedPath = this._normalizeStoragePath(filePath);
+			const fileName = this._getFileNameFromPath(filePath);
+			return machineTypeEntriesByStoragePath.get(filePath)
+				|| machineTypeEntriesByStoragePath.get(normalizedPath)
+				|| machineTypeEntriesByStoragePath.get(item.name)
+				|| machineTypeEntriesByStoragePath.get(fileName)
+				|| null;
+		};
+
+		const getDisplayName = (item) => {
+			const entry = getMachineTypeEntry(item);
+			return entry && entry.name ? entry.name : item.name;
+		};
 
 		// ── Update hidden <select> (used by loadSelectedFileIntoScene) ────────
 		if (this.ui.fileSelect) {
@@ -422,7 +544,7 @@ W3D.Supabase = {
 				const filePath = folder ? `${folder}/${item.name}` : item.name;
 				const option = document.createElement('option');
 				option.value = filePath;
-				option.textContent = item.name;
+				option.textContent = getDisplayName(item);
 				this.ui.fileSelect.appendChild(option);
 			});
 		}
@@ -436,21 +558,46 @@ W3D.Supabase = {
 				// Show friendly empty state.
 				const empty = document.createElement('div');
 				empty.className = 'sb-file-empty';
-				empty.textContent = 'No models uploaded yet';
+				empty.textContent = 'Nog geen modellen beschikbaar';
 				fileList.appendChild(empty);
-				this.setStatus(`Connected, but no .glb files were found in ${this._getFolderLabel()}.`);
+				this.setStatus(`Er zijn nog geen 3D-modellen gevonden in ${this._getFolderLabel()}.`);
 				return;
 			}
 
 			// One list item per model file.
 			glbFiles.forEach(item => {
 				const filePath = folder ? `${folder}/${item.name}` : item.name;
+				const machineTypeEntry = getMachineTypeEntry(item);
+				const displayName = getDisplayName(item);
 
 				const div = document.createElement('div');
 				div.className = 'sb-file-item';
 				div.dataset.filePath = filePath;
 				div.innerHTML = `<span class="sb-file-item-icon">◈</span>` +
-					`<span class="sb-file-item-name">${item.name}</span>`;
+					`<span class="sb-file-item-name">${displayName}</span>`;
+
+				if (machineTypeEntry && machineTypeEntry.machineTypeId != null) {
+					const editButton = document.createElement('button');
+					editButton.type = 'button';
+					editButton.className = 'sb-file-item-edit';
+					editButton.textContent = '✎';
+					editButton.title = `Bewerk ${displayName}`;
+					editButton.setAttribute('aria-label', `Bewerk ${displayName}`);
+					editButton.addEventListener('click', (event) => {
+						event.stopPropagation();
+						if (typeof this.onEditMachineTypeRequested === 'function') {
+							this.onEditMachineTypeRequested({
+								machineTypeId: machineTypeEntry.machineTypeId,
+								name: machineTypeEntry.name,
+								storagePath: machineTypeEntry.storagePath || filePath,
+								link1: machineTypeEntry.link1 || '',
+								link2: machineTypeEntry.link2 || '',
+								link3: machineTypeEntry.link3 || '',
+							});
+						}
+					});
+					div.appendChild(editButton);
+				}
 
 				div.addEventListener('click', () => {
 					// Deselect all other items first.
@@ -469,14 +616,14 @@ W3D.Supabase = {
 		}
 
 		// Show count so user knows list is ready.
-		this.setStatus(`Ready. Found ${glbFiles.length} model file(s) in ${this._getFolderLabel()}.`);
+		this.setStatus(`${glbFiles.length} model${glbFiles.length === 1 ? '' : 'len'} beschikbaar in ${this._getFolderLabel()}.`);
 	},
 
 	// Build a public URL and send the selected model to the 3D loader.
 	async loadSelectedFileIntoScene() {
 		// Guard: need active Supabase connection.
 		if (!this.client) {
-			this.setStatus(this.lastInitError || 'Supabase client is not connected yet.', true);
+			this.setStatus(this.lastInitError || 'De opslag is op dit moment niet beschikbaar.', true);
 			return;
 		}
 
@@ -485,7 +632,7 @@ W3D.Supabase = {
 
 		// Guard: nothing selected.
 		if (!filePath) {
-			this.setStatus('Choose a file from the dropdown first.', true);
+			this.setStatus('Kies eerst een model uit de lijst.', true);
 			return;
 		}
 
@@ -505,19 +652,24 @@ W3D.Supabase = {
 		}
 
 		if (!modelUrl) {
-			const reason = signedError ? signedError.message : 'Could not build a URL for selected file.';
-			this.setStatus(reason, true);
+			this.setStatus(this._friendlyStorageError(signedError, 'Het geselecteerde model kon niet worden voorbereid.'), true);
 			console.error('Supabase URL build error:', signedError);
 			return;
 		}
 
 		// Friendly model name from path tail.
-		const fileName = filePath.split('/').pop() || 'Supabase Model';
+		const fileName = filePath.split('/').pop() || 'Model';
 
 		// Show status so user knows loading started.
-		this.setStatus(`Loading ${fileName} into the scene...`);
+		this.setStatus(`${fileName} wordt in de ruimte geladen...`);
 
 		// Use existing Three.js factory method to load model from URL.
-		W3D.Factory.loadRemoteGLTF(modelUrl, fileName);
+		try {
+			await W3D.Factory.loadRemoteGLTF(modelUrl, fileName, { storagePath: filePath });
+			this.setStatus(`${fileName} staat nu in de ruimte. Zet het op de juiste plek en klik daarna op Opslaan.`);
+		} catch (loadError) {
+			console.error('Supabase model load error:', loadError);
+			this.setStatus(`${fileName} kon niet worden geladen. Probeer het opnieuw.`, true);
+		}
 	},
 };

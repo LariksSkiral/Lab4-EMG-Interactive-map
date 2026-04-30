@@ -3,46 +3,59 @@
   Admin page for Minimal3D.
   This page contains management tools such as Supabase model upload and loading.
 -->
-<html lang="en">
+<html lang="nl">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minimal3D Admin</title>
+  <title>Minimal3D Docent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" crossorigin href="/assets/ui-Bc4sIQkW.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" crossorigin href="/assets/ui-BwlOxddV.css">
 </head>
+
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="tb-left">
-        <span class="tb-logo">⬡ Minimal3D</span>
-        <span class="tb-scene-name">Admin Mode</span>
+        <span class="tb-logo">⬡ Mechanische Werkplaats</span>
+      </div>
+      <div class="tb-center">
+        <div class="view-toggle">
+          <button id="btn-view-3d" class="view-btn active" type="button">3D View</button>
+          <button id="btn-view-top" class="view-btn" type="button">Top View</button>
+          <button id="btn-grid-toggle" class="view-btn grid-toggle-btn active" type="button">Grid</button>
+        </div>
       </div>
       <div class="tb-right">
-        <span class="tb-badge">Admin</span>
-        <a class="tb-btn" href="index.html">Viewer</a>
-        <a class="tb-btn active" href="admin.html">Admin</a>
-        <button id="btn-auth-logout" class="tb-btn" type="button">Logout</button>
+        <button id="btn-save-layout" class="tb-btn tb-btn-save" type="button" disabled>Opslaan</button>
+        <div class="view-toggle mode-toggle" aria-label="Applicatiemodus">
+          <a class="view-btn" href="index.html">Student</a>
+          <a class="view-btn active" href="admin.html" aria-current="page">Docent</a>
+        </div>
+        <button id="btn-auth-logout" class="tb-btn" type="button">Uitloggen</button>
+        <span id="db-status" class="db-status" role="status" aria-live="polite"></span>
       </div>
     </header>
 
     <section id="login-panel" class="auth-shell">
       <div class="auth-card">
-        <h2>Admin Login</h2>
+        <h2>Docent inloggen</h2>
         <p>
-          Sign in with your Supabase account to unlock admin actions like model upload and management.
+          Log in met je account om modellen te beheren en machineposities aan te passen.
         </p>
 
-        <label class="auth-label" for="auth-email">Email</label>
-        <input id="auth-email" class="auth-input" type="email" placeholder="name@example.com" autocomplete="email">
+        <label class="auth-label" for="auth-email">E-mailadres</label>
+        <input id="auth-email" class="auth-input" type="email" placeholder="naam@voorbeeld.nl" autocomplete="email">
 
-        <label class="auth-label" for="auth-password">Password</label>
-        <input id="auth-password" class="auth-input" type="password" placeholder="Your password" autocomplete="current-password">
+        <label class="auth-label" for="auth-password">Wachtwoord</label>
+        <input id="auth-password" class="auth-input" type="password" placeholder="Je wachtwoord"
+          autocomplete="current-password">
 
         <div class="auth-row">
-          <button id="btn-auth-login" class="auth-btn" type="button">Login</button>
-          <button id="btn-auth-register" class="auth-btn secondary" type="button">Register</button>
+          <button id="btn-auth-login" class="auth-btn" type="button">Inloggen</button>
         </div>
 
         <div id="auth-error" class="auth-error" role="status" aria-live="polite"></div>
@@ -52,101 +65,143 @@
     <!-- Admin workspace: fullscreen 3D canvas + overlay taskbar + slide-in drawer -->
     <div id="admin-panel" class="admin-workspace is-hidden">
 
+      <!-- Red warning badge shown when the canvas changed after the last save. -->
+      <div id="unsaved-alert" class="unsaved-alert is-hidden" role="status" aria-live="polite">
+        Niet-opgeslagen wijzigingen
+      </div>
+
       <!-- 3D scene fills the entire workspace -->
       <canvas id="three-canvas"></canvas>
 
       <!-- Slide-in uploader drawer (hidden by default, opens when + is clicked) -->
-      <aside id="uploader-drawer" class="uploader-drawer" aria-label="Model uploader">
+      <aside id="uploader-drawer" class="uploader-drawer" aria-label="Modellenmenu">
         <div class="drawer-header">
           <div class="drawer-title-row">
             <span class="drawer-icon">⬡</span>
-            <span class="drawer-title">Upload Model</span>
+            <span class="drawer-title">Modelbibliotheek</span>
           </div>
-          <button id="drawer-close" class="drawer-close" type="button" title="Close panel">✕</button>
+          <div class="drawer-header-actions">
+            <button id="btn-open-machine-form" class="drawer-icon-btn drawer-create-btn" type="button"
+              title="Nieuwe machine toevoegen">＋</button>
+            <button id="drawer-close" class="drawer-close" type="button" title="Sluit menu">✕</button>
+          </div>
         </div>
 
-        <!-- Step 1: Drop zone / file picker -->
-        <div class="drawer-section">
-          <p class="drawer-label">Add a 3D file to your Supabase bucket</p>
-
-          <!-- Drag-and-drop zone. Click or drag a file onto it. -->
-          <label id="drop-zone" class="drop-zone" for="sb-file-input" tabindex="0" role="button"
-                 aria-label="Drag and drop a .glb or .gltf file, or click to browse">
-            <span class="drop-icon">↑</span>
-            <span class="drop-primary">Drop .glb or .gltf here</span>
-            <span class="drop-secondary">or click to browse your files</span>
-            <!-- Hidden real file input, triggered by the label above -->
-            <input id="sb-file-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
-                   style="position:absolute;inset:0;opacity:0;cursor:pointer;">
-          </label>
-
-          <!-- File preview: shown after a file is selected, hidden by default -->
-          <div id="file-preview" class="file-preview is-hidden">
-            <span class="file-preview-icon">◈</span>
-            <div class="file-preview-info">
-              <span id="file-preview-name" class="file-preview-name">filename.glb</span>
-              <span id="file-preview-size" class="file-preview-size">— KB</span>
-            </div>
-            <button id="file-preview-clear" class="file-preview-clear" type="button" title="Remove file">✕</button>
-          </div>
-
-          <button id="sb-upload-btn" class="drawer-btn primary" type="button" disabled>
-            Upload to Supabase
-          </button>
-        </div>
-
-        <!-- Divider between upload and model library -->
-        <div class="drawer-divider"></div>
-
-        <!-- Step 2: Uploaded models library -->
         <div class="drawer-section">
           <div class="drawer-library-header">
-            <span class="drawer-label">Uploaded models</span>
-            <button id="sb-refresh-btn" class="drawer-icon-btn" type="button" title="Refresh list">↻</button>
+            <span class="drawer-label">Beschikbare modellen</span>
+            <button id="sb-refresh-btn" class="drawer-icon-btn" type="button" title="Ververs lijst">↻</button>
           </div>
 
-          <!-- List of files fetched from Supabase, populated dynamically -->
           <div id="sb-file-list" class="sb-file-list">
-            <!-- Items are injected here by supabase.js listFilesAndPopulateDropdown -->
-            <div class="sb-file-empty">No models uploaded yet</div>
+            <div class="sb-file-empty">Nog geen modellen beschikbaar</div>
           </div>
 
-          <!-- Hidden select kept for backwards-compatibility with supabase.js logic -->
           <select id="sb-file-select" style="display:none"></select>
 
           <button id="sb-load-btn" class="drawer-btn secondary" type="button" disabled>
-            Load selected model
+            Laad geselecteerd model
           </button>
         </div>
 
-        <!-- Status / error message at the bottom of the drawer -->
         <div id="sb-status" class="drawer-status" role="status" aria-live="polite"></div>
+        <aside id="machine-overlay" class="machine-overlay" aria-label="Nieuwe machine toevoegen">
+          <div class="overlay-header">
+            <div class="overlay-title-row">
+              <span class="overlay-icon">⬡</span>
+              <span class="overlay-title">Nieuwe machine toevoegen</span>
+            </div>
+            <button id="overlay-close" class="overlay-close" type="button" title="Sluit panel">✕</button>
+          </div>
+
+          <div class="overlay-content">
+            <div class="overlay-section">
+              <label class="overlay-label" for="machine-name">Naam van de machine</label>
+              <input id="machine-name" class="overlay-input" type="text" placeholder="Voer naam in...">
+            </div>
+
+            <div class="overlay-section">
+              <p class="overlay-label">3D Model</p>
+              <label id="model-drop-zone" class="model-drop-zone" for="model-file-input" tabindex="0" role="button"
+                aria-label="Sleep een .glb of .gltf bestand hierheen, of klik om te bladeren">
+                <span class="drop-icon">↑</span>
+                <span class="drop-primary">Sleep .glb of .gltf hier</span>
+                <span class="drop-secondary">of klik om te bladeren</span>
+                <input id="model-file-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                  style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+              </label>
+              <div id="model-preview" class="model-preview is-hidden">
+                <span class="model-preview-icon">◈</span>
+                <div class="model-preview-info">
+                  <span id="model-preview-name" class="model-preview-name">filename.glb</span>
+                  <span id="model-preview-size" class="model-preview-size">— KB</span>
+                </div>
+                <button id="model-preview-clear" class="model-preview-clear" type="button"
+                  title="Verwijder bestand">✕</button>
+              </div>
+            </div>
+
+            <div class="overlay-section">
+              <p class="overlay-label">Links</p>
+              <div class="links-container">
+                <div class="link-input-group">
+                  <label for="link1">Cursusmateriaal</label>
+                  <input id="link1" class="overlay-input" type="url" placeholder="https://voorbeeld.nl">
+                </div>
+                <div class="link-input-group">
+                  <label for="link2">Onderhoud</label>
+                  <input id="link2" class="overlay-input" type="url" placeholder="https://voorbeeld.nl">
+                </div>
+                <div class="link-input-group">
+                  <label for="link3">Veiligheid</label>
+                  <input id="link3" class="overlay-input" type="url" placeholder="https://voorbeeld.nl">
+                </div>
+              </div>
+            </div>
+
+            <div class="overlay-section">
+              <button id="save-machine-btn" class="overlay-btn primary" type="button" disabled>
+                Machine opslaan
+              </button>
+            </div>
+
+            <div id="machine-status" class="overlay-status" role="status" aria-live="polite"></div>
+          </div>
+        </aside>
       </aside>
 
+      <!-- Transform info strip – shows selected object info above the taskbar -->
+      <div id="transform-info" class="transform-info is-hidden">
+        <span class="tf-chip"><span class="tf-label">Object</span> <span id="tf-obj-name"
+            class="tf-value">—</span></span>
+        <span class="tf-chip"><span class="tf-label">Pos</span> <span id="tf-obj-pos" class="tf-value">—</span></span>
+        <span class="tf-chip"><span class="tf-label">Rot</span> <span id="tf-obj-rot" class="tf-value">—</span></span>
+      </div>
+
       <!-- Figma-style bottom taskbar, floating over the 3D viewport -->
-      <nav class="taskbar" aria-label="Editor tools">
+      <nav class="taskbar" aria-label="Docenthulpmiddelen">
         <!-- Primary: add / upload action -->
-        <button id="btn-open-uploader" class="task-btn primary" type="button" title="Upload model">
+        <button id="btn-open-uploader" class="task-btn primary" type="button" title="Voeg nieuwe machine toe">
           <span class="task-icon task-icon-plus">＋</span>
-          <span class="task-label">Add</span>
+          <span class="task-label">Voeg nieuwe machine toe</span>
         </button>
 
         <!-- Divider between primary and secondary actions -->
         <div class="taskbar-sep"></div>
 
-        <!-- Secondary: transform tools (placeholder, will be wired up later) -->
+        <!-- Transform tools (disabled until an object is selected) -->
         <div class="taskbar-group">
-          <button class="task-btn" type="button" title="Move (coming soon)" disabled>
+          <button id="btn-tool-move" class="task-btn" type="button" title="Verplaatsen (G)" disabled>
             <span class="task-icon">⤢</span>
-            <span class="task-label">Move</span>
+            <span class="task-label">Verplaatsen</span>
           </button>
-          <button class="task-btn" type="button" title="Scale (coming soon)" disabled>
-            <span class="task-icon">⤡</span>
-            <span class="task-label">Scale</span>
-          </button>
-          <button class="task-btn" type="button" title="Rotate (coming soon)" disabled>
+          <button id="btn-tool-rotate" class="task-btn" type="button" title="Draaien (R)" disabled>
             <span class="task-icon">↻</span>
-            <span class="task-label">Rotate</span>
+            <span class="task-label">Draaien</span>
+          </button>
+          <button id="btn-tool-delete" class="task-btn danger" type="button" title="Verwijderen (Delete)" disabled>
+            <span class="task-icon">✕</span>
+            <span class="task-label">Verwijderen</span>
           </button>
         </div>
       </nav>
@@ -166,14 +221,18 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script src="js/core/state.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/objects/factory.js"></script>
+  <script src="js/tools/transform.js"></script>
   <script src="supabase.js"></script>
+  <script src="js/core/database.js"></script>
   <script src="auth.js"></script>
   <script src="js/core/main.js"></script>
 </body>
+
 </html>
