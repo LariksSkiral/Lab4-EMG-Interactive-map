@@ -1,1 +1,29 @@
 .vercel
+
+# Node
+node_modules/
+dist/
+dist-minimal3d/
+
+# Env files (belangrijk!)
+.env
+.env.local
+.env.*.local
+
+# OS rommel
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Supabase local (optioneel)
+.supabase/
+
+# Test / temp bestanden
+*.tmp
+*.bak
