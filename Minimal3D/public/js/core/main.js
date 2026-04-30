@@ -5,18 +5,14 @@ const { onAuthStateChange } = W3D.Supabase || {};
 /* Application entry point - This starts the app when the page loads */
 W3D.init = async function () {
   const friendlyClientMessage = (error, fallbackMessage) => {
-    const rawMessage = String((error && error.message) || "").toLowerCase();
+    const rawMessage = String((error && error.message) || '').toLowerCase();
 
     if (!rawMessage) return fallbackMessage;
-    if (
-      rawMessage.includes("verbinding") ||
-      rawMessage.includes("network") ||
-      rawMessage.includes("fetch")
-    ) {
-      return "Er kon geen verbinding worden gemaakt. Probeer het opnieuw.";
+    if (rawMessage.includes('verbinding') || rawMessage.includes('network') || rawMessage.includes('fetch')) {
+      return 'Er kon geen verbinding worden gemaakt. Probeer het opnieuw.';
     }
-    if (rawMessage.includes("supabase") || rawMessage.includes("opslag")) {
-      return "Deze functie is op dit moment niet beschikbaar.";
+    if (rawMessage.includes('supabase') || rawMessage.includes('opslag')) {
+      return 'Deze functie is op dit moment niet beschikbaar.';
     }
 
     return error.message || fallbackMessage;
@@ -52,28 +48,28 @@ W3D.init = async function () {
       () => W3D.setViewMode && W3D.setViewMode("top"),
     );
 
-  const viewerHelpTrigger = document.getElementById("viewer-help-trigger");
-  const viewerHelpModal = document.getElementById("viewer-help-modal");
-  const viewerHelpClose = document.getElementById("viewer-help-close");
-  const viewerHelpBackdrop = document.getElementById("viewer-help-backdrop");
+  const viewerHelpTrigger = document.getElementById('viewer-help-trigger');
+  const viewerHelpModal = document.getElementById('viewer-help-modal');
+  const viewerHelpClose = document.getElementById('viewer-help-close');
+  const viewerHelpBackdrop = document.getElementById('viewer-help-backdrop');
 
   if (viewerHelpTrigger && viewerHelpModal) {
     const openViewerHelp = () => {
-      viewerHelpModal.classList.remove("is-hidden");
-      viewerHelpModal.setAttribute("aria-hidden", "false");
-      viewerHelpTrigger.setAttribute("aria-expanded", "true");
+      viewerHelpModal.classList.remove('is-hidden');
+      viewerHelpModal.setAttribute('aria-hidden', 'false');
+      viewerHelpTrigger.setAttribute('aria-expanded', 'true');
       if (viewerHelpClose) viewerHelpClose.focus();
     };
 
     const closeViewerHelp = () => {
-      viewerHelpModal.classList.add("is-hidden");
-      viewerHelpModal.setAttribute("aria-hidden", "true");
-      viewerHelpTrigger.setAttribute("aria-expanded", "false");
+      viewerHelpModal.classList.add('is-hidden');
+      viewerHelpModal.setAttribute('aria-hidden', 'true');
+      viewerHelpTrigger.setAttribute('aria-expanded', 'false');
       viewerHelpTrigger.focus();
     };
 
-    viewerHelpTrigger.addEventListener("click", () => {
-      const isOpen = !viewerHelpModal.classList.contains("is-hidden");
+    viewerHelpTrigger.addEventListener('click', () => {
+      const isOpen = !viewerHelpModal.classList.contains('is-hidden');
       if (isOpen) {
         closeViewerHelp();
         return;
@@ -82,37 +78,32 @@ W3D.init = async function () {
     });
 
     if (viewerHelpClose) {
-      viewerHelpClose.addEventListener("click", closeViewerHelp);
+      viewerHelpClose.addEventListener('click', closeViewerHelp);
     }
 
     if (viewerHelpBackdrop) {
-      viewerHelpBackdrop.addEventListener("click", closeViewerHelp);
+      viewerHelpBackdrop.addEventListener('click', closeViewerHelp);
     }
 
-    document.addEventListener("keydown", (event) => {
-      if (
-        event.key === "Escape" &&
-        !viewerHelpModal.classList.contains("is-hidden")
-      ) {
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !viewerHelpModal.classList.contains('is-hidden')) {
         closeViewerHelp();
       }
     });
   }
 
-  const machineActionUI = document.getElementById("machine-action-icons");
+  const machineActionUI = document.getElementById('machine-action-icons');
   if (machineActionUI) {
     const canvas = W3D.renderer && W3D.renderer.domElement;
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const actionButtons = Array.from(
-      machineActionUI.querySelectorAll(".action-icon"),
-    );
+    const actionButtons = Array.from(machineActionUI.querySelectorAll('.action-icon'));
     let selectedMachine = null;
     let highlightedMaterials = [];
     let pointerDown = null;
 
     const clearHighlight = () => {
-      highlightedMaterials.forEach((material) => {
+      highlightedMaterials.forEach(material => {
         if (material._origEmissive) {
           material.emissive.copy(material._origEmissive);
           delete material._origEmissive;
@@ -122,17 +113,14 @@ W3D.init = async function () {
       highlightedMaterials = [];
     };
 
-    const applyHighlight = (mesh) => {
+    const applyHighlight = mesh => {
       clearHighlight();
-      mesh.traverse((child) => {
+      mesh.traverse(child => {
         if (!child.isMesh || !child.material) return;
-        const materials = Array.isArray(child.material)
-          ? child.material
-          : [child.material];
-        materials.forEach((material) => {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach(material => {
           if (!material.emissive) return;
-          if (!material._origEmissive)
-            material._origEmissive = material.emissive.clone();
+          if (!material._origEmissive) material._origEmissive = material.emissive.clone();
           material.emissive.set(0xe8720c);
           material.emissiveIntensity = 0.32;
           highlightedMaterials.push(material);
@@ -140,55 +128,46 @@ W3D.init = async function () {
       });
     };
 
-    const getSelectedMachineLink = (action) => {
+    const getSelectedMachineLink = action => {
       if (!selectedMachine || !selectedMachine.props) return null;
 
       const links = {
-        course:
-          selectedMachine.props.link1 ||
-          selectedMachine.props.courseLink ||
-          null,
-        maintenance:
-          selectedMachine.props.link2 ||
-          selectedMachine.props.maintenanceLink ||
-          null,
-        safety:
-          selectedMachine.props.link3 ||
-          selectedMachine.props.safetyLink ||
-          null,
+        course: selectedMachine.props.link1 || selectedMachine.props.courseLink || null,
+        maintenance: selectedMachine.props.link2 || selectedMachine.props.maintenanceLink || null,
+        safety: selectedMachine.props.link3 || selectedMachine.props.safetyLink || null,
       };
 
       return links[action] || null;
     };
 
     const updateActionButtons = () => {
-      actionButtons.forEach((button) => {
-        const action = button.getAttribute("data-action");
+      actionButtons.forEach(button => {
+        const action = button.getAttribute('data-action');
         button.disabled = !getSelectedMachineLink(action);
       });
     };
 
     const updateActionIcons = () => {
       if (!selectedMachine || !selectedMachine.mesh) {
-        machineActionUI.classList.add("is-hidden");
+        machineActionUI.classList.add('is-hidden');
         return;
       }
 
       const bbox = new THREE.Box3().setFromObject(selectedMachine.mesh);
       if (bbox.isEmpty()) {
-        machineActionUI.classList.add("is-hidden");
+        machineActionUI.classList.add('is-hidden');
         return;
       }
 
       const worldPos = new THREE.Vector3(
         (bbox.min.x + bbox.max.x) / 2,
         bbox.max.y,
-        (bbox.min.z + bbox.max.z) / 2,
+        (bbox.min.z + bbox.max.z) / 2
       );
 
       worldPos.project(W3D.activeCamera || W3D.camera);
       if (worldPos.z < -1 || worldPos.z > 1) {
-        machineActionUI.classList.add("is-hidden");
+        machineActionUI.classList.add('is-hidden');
         return;
       }
 
@@ -196,30 +175,27 @@ W3D.init = async function () {
       const y = ((-worldPos.y + 1) / 2) * window.innerHeight;
       machineActionUI.style.left = `${x}px`;
       machineActionUI.style.top = `${y - 8}px`;
-      machineActionUI.classList.remove("is-hidden");
+      machineActionUI.classList.remove('is-hidden');
       updateActionButtons();
     };
 
     const deselectMachine = () => {
       selectedMachine = null;
       clearHighlight();
-      machineActionUI.classList.add("is-hidden");
+      machineActionUI.classList.add('is-hidden');
       updateActionButtons();
     };
 
-    const selectMachine = (objectEntry) => {
+    const selectMachine = objectEntry => {
       selectedMachine = objectEntry;
-
       applyHighlight(objectEntry.mesh);
       updateActionIcons();
-
-      // NIEUW: camera focussen op aangeklikte machine
       if (W3D.focusCameraOnObject) {
         W3D.focusCameraOnObject(objectEntry);
       }
     };
 
-    const pickMachine = (event) => {
+    const pickMachine = event => {
       if (!canvas) return null;
 
       const rect = canvas.getBoundingClientRect();
@@ -229,17 +205,13 @@ W3D.init = async function () {
       W3D.scene.updateMatrixWorld(true);
       raycaster.setFromCamera(pointer, W3D.activeCamera || W3D.camera);
 
-      const rootMeshes = W3D.objects
-        .filter((objectEntry) => !objectEntry.static)
-        .map((objectEntry) => objectEntry.mesh);
+      const rootMeshes = W3D.objects.filter(objectEntry => !objectEntry.static).map(objectEntry => objectEntry.mesh);
       const hits = raycaster.intersectObjects(rootMeshes, true);
       if (hits.length === 0) return null;
 
       let node = hits[0].object;
       while (node) {
-        const foundObject = W3D.objects.find(
-          (objectEntry) => objectEntry.mesh === node && !objectEntry.static,
-        );
+        const foundObject = W3D.objects.find(objectEntry => objectEntry.mesh === node && !objectEntry.static);
         if (foundObject) return foundObject;
         node = node.parent;
       }
@@ -247,23 +219,23 @@ W3D.init = async function () {
       return null;
     };
 
-    machineActionUI.addEventListener("click", (event) => {
-      const button = event.target.closest(".action-icon");
+    machineActionUI.addEventListener('click', event => {
+      const button = event.target.closest('.action-icon');
       if (!button || button.disabled) return;
 
-      const action = button.getAttribute("data-action");
+      const action = button.getAttribute('data-action');
       const url = getSelectedMachineLink(action);
       if (url) {
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.open(url, '_blank', 'noopener,noreferrer');
       }
     });
 
     if (canvas) {
-      canvas.addEventListener("pointerdown", (event) => {
+      canvas.addEventListener('pointerdown', event => {
         pointerDown = { x: event.clientX, y: event.clientY };
       });
 
-      canvas.addEventListener("click", (event) => {
+      canvas.addEventListener('click', event => {
         if (pointerDown) {
           const deltaX = event.clientX - pointerDown.x;
           const deltaY = event.clientY - pointerDown.y;
@@ -283,12 +255,12 @@ W3D.init = async function () {
     }
 
     if (W3D.orbitControls) {
-      W3D.orbitControls.addEventListener("change", updateActionIcons);
+      W3D.orbitControls.addEventListener('change', updateActionIcons);
     }
 
-    window.addEventListener("resize", updateActionIcons);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
+    window.addEventListener('resize', updateActionIcons);
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
         deselectMachine();
       }
     });
@@ -315,8 +287,8 @@ W3D.init = async function () {
   const hasAdminAuthPanels = Boolean(loginPanel && adminPanel);
   const hasStorageControls = Boolean(
     document.getElementById("sb-file-list") ||
-    document.getElementById("sb-load-btn") ||
-    document.getElementById("sb-refresh-btn"),
+      document.getElementById("sb-load-btn") ||
+      document.getElementById("sb-refresh-btn"),
   );
   const hasDatabaseFeatures = Boolean(W3D.Database);
 
@@ -369,9 +341,7 @@ W3D.init = async function () {
         const password = passwordInput ? passwordInput.value : "";
         const { error: loginError } = await W3D.Auth.login(email, password);
         if (loginError && authError) {
-          authError.textContent =
-            loginError.message ||
-            "Inloggen is niet gelukt. Probeer het opnieuw.";
+          authError.textContent = loginError.message || 'Inloggen is niet gelukt. Probeer het opnieuw.';
         }
       });
     }
@@ -385,14 +355,12 @@ W3D.init = async function () {
           password,
         );
         if (registerError && authError) {
-          authError.textContent =
-            registerError.message ||
-            "Het aanmaken van het account is niet gelukt.";
+          authError.textContent = registerError.message || 'Het aanmaken van het account is niet gelukt.';
           return;
         }
         if (authError) {
           authError.textContent =
-            "Account aangemaakt. Controleer eerst je e-mail als bevestiging nodig is voordat je inlogt.";
+            'Account aangemaakt. Controleer eerst je e-mail als bevestiging nodig is voordat je inlogt.';
         }
       });
     }
@@ -401,9 +369,7 @@ W3D.init = async function () {
       logoutButton.addEventListener("click", async () => {
         const { error: logoutError } = await W3D.Auth.logout();
         if (logoutError && authError) {
-          authError.textContent =
-            logoutError.message ||
-            "Uitloggen is niet gelukt. Probeer het opnieuw.";
+          authError.textContent = logoutError.message || 'Uitloggen is niet gelukt. Probeer het opnieuw.';
         }
       });
     }
@@ -588,25 +554,18 @@ W3D.init = async function () {
     // Save machine logic
     if (saveMachineBtn) {
       saveMachineBtn.addEventListener("click", async () => {
-        const machineName = machineNameInput
-          ? machineNameInput.value.trim()
-          : "";
+        const machineName = machineNameInput ? machineNameInput.value.trim() : "";
         const link1 = link1Input ? link1Input.value.trim() : "";
         const link2 = link2Input ? link2Input.value.trim() : "";
         const link3 = link3Input ? link3Input.value.trim() : "";
 
-        if (
-          !machineName ||
-          !selectedModelFile ||
-          !W3D.Supabase ||
-          !W3D.Database
-        ) {
+        if (!machineName || !selectedModelFile || !W3D.Supabase || !W3D.Database) {
           return;
         }
 
         saveMachineBtn.disabled = true;
         if (machineStatus) {
-          machineStatus.textContent = "Machine wordt opgeslagen...";
+          machineStatus.textContent = 'Machine wordt opgeslagen...';
           machineStatus.classList.remove("is-ok");
           machineStatus.classList.remove("is-error");
         }
@@ -614,8 +573,7 @@ W3D.init = async function () {
         try {
           if (!W3D.Supabase.client) {
             throw new Error(
-              W3D.Supabase.lastInitError ||
-                "De opslag is op dit moment niet beschikbaar.",
+              W3D.Supabase.lastInitError || 'De opslag is op dit moment niet beschikbaar.',
             );
           }
 
@@ -648,10 +606,7 @@ W3D.init = async function () {
         } catch (error) {
           console.error("Error saving machine:", error);
           if (machineStatus) {
-            machineStatus.textContent = friendlyClientMessage(
-              error,
-              "Het opslaan van de machine is niet gelukt.",
-            );
+            machineStatus.textContent = friendlyClientMessage(error, 'Het opslaan van de machine is niet gelukt.');
             machineStatus.classList.remove("is-ok");
             machineStatus.classList.add("is-error");
           }
@@ -667,7 +622,7 @@ W3D.init = async function () {
         authError.textContent =
           W3D.Supabase && W3D.Supabase.lastInitError
             ? W3D.Supabase.lastInitError
-            : "Deze omgeving is nog niet volledig ingesteld.";
+            : 'Deze omgeving is nog niet volledig ingesteld.';
       }
       showLoginPanel();
     } else {
@@ -692,7 +647,7 @@ W3D.init = async function () {
       if (error) {
         if (authError)
           authError.textContent =
-            error.message || "We konden niet controleren of je bent ingelogd.";
+            error.message || 'We konden niet controleren of je bent ingelogd.';
         showLoginPanel();
       } else if (data && data.user) {
         await showAdminPanel();
