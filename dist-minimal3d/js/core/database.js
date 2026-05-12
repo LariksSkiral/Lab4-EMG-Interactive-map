@@ -889,7 +889,7 @@ W3D.Database = {
 
   // Restore all machine rows into the scene.
   // We guard this with a promise so repeated calls do not duplicate the same models.
-  async loadSavedMachinesIntoScene(forceReload = false) {
+  async loadSavedMachinesIntoScene(forceReload = false, onProgress = null) {
     if (this._loadingPlacementsPromise) {
       return this._loadingPlacementsPromise;
     }
@@ -898,7 +898,7 @@ W3D.Database = {
       return;
     }
 
-    this._loadingPlacementsPromise = this._loadSavedMachinesIntoSceneInternal(forceReload);
+    this._loadingPlacementsPromise = this._loadSavedMachinesIntoSceneInternal(forceReload, onProgress);
 
     try {
       await this._loadingPlacementsPromise;
@@ -908,7 +908,7 @@ W3D.Database = {
   },
 
   // Internal restore implementation.
-  async _loadSavedMachinesIntoSceneInternal(forceReload) {
+  async _loadSavedMachinesIntoSceneInternal(forceReload, onProgress) {
     try {
       const client = await this._ensureClient();
 
@@ -963,85 +963,95 @@ W3D.Database = {
       let loadedCount = 0;
       let skippedCount = 0;
 
-      for (const machineRow of machineRows) {
-        const machineTypeId = this._readRowValue(
-          machineRow,
-          this.columns.machineTypeForeignKey,
-          this.readColumns.machineTypeForeignKey
-        );
-        const machineTypeRow = machineTypesById.get(machineTypeId);
-        const machineTypeLinkRow = machineTypeLinksByMachineTypeId.get(machineTypeId) || null;
+      onProgress?.(0, machineRows.length);
 
-        if (!machineTypeRow) {
-          console.warn('Skipping machine row because machine type is missing:', machineRow);
-          continue;
-        }
+      await Promise.allSettled(machineRows.map(async (machineRow) => {
+        try {
+          const machineTypeId = this._readRowValue(
+            machineRow,
+            this.columns.machineTypeForeignKey,
+            this.readColumns.machineTypeForeignKey
+          );
+          const machineTypeRow = machineTypesById.get(machineTypeId);
+          const machineTypeLinkRow = machineTypeLinksByMachineTypeId.get(machineTypeId) || null;
 
-        const modelReference = machineTypeRow[this.columns.machineTypeModelPath];
-        if (!modelReference) {
-          console.warn('Skipping machine type because model path is missing:', machineTypeRow);
-          skippedCount += 1;
-          continue;
-        }
+          if (!machineTypeRow) {
+            console.warn('Skipping machine row because machine type is missing:', machineRow);
+            skippedCount += 1;
+            return;
+          }
 
-        const modelCandidates = await this._buildModelUrlCandidates(modelReference);
-        let loaded = false;
-        let lastLoadError = null;
+          const modelReference = machineTypeRow[this.columns.machineTypeModelPath];
+          if (!modelReference) {
+            console.warn('Skipping machine type because model path is missing:', machineTypeRow);
+            skippedCount += 1;
+            return;
+          }
 
-        for (const candidateUrl of modelCandidates.urls) {
-          try {
-            await W3D.Factory.loadRemoteGLTF(
-              candidateUrl,
-              machineTypeRow[this.columns.machineTypeName] || 'Saved Machine',
-              {
-                storagePath: modelCandidates.normalizedPath || this._normalizeStoragePath(modelReference),
+          const modelCandidates = await this._buildModelUrlCandidates(modelReference);
+          let loaded = false;
+          let lastLoadError = null;
+
+          for (const candidateUrl of modelCandidates.urls) {
+            try {
+              await W3D.Factory.loadRemoteGLTF(
+                candidateUrl,
+                machineTypeRow[this.columns.machineTypeName] || 'Saved Machine',
+                {
+                  storagePath: modelCandidates.normalizedPath || this._normalizeStoragePath(modelReference),
+                  machineId: machineRow[this.columns.machineId] || null,
+                  machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
+                  machineTypeLinkId: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkId] || null : null,
+                  link1: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkOne] || null : null,
+                  link2: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkTwo] || null : null,
+                  link3: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkThree] || null : null,
+                  courseLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkOne] || null : null,
+                  maintenanceLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkTwo] || null : null,
+                  safetyLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkThree] || null : null,
+                  positionX: this._toNumber(
+                    this._readRowValue(machineRow, this.columns.machinePositionX, this.readColumns.machinePositionX)
+                  ),
+                  positionZ: this._toNumber(
+                    this._readRowValue(machineRow, this.columns.machinePositionZ, this.readColumns.machinePositionZ)
+                  ),
+                  rotationY: this._toNumber(
+                    this._readRowValue(machineRow, this.columns.machineRotationY, this.readColumns.machineRotationY)
+                  ),
+                  createdFromDatabase: true,
+                }
+              );
+
+              loaded = true;
+              loadedCount += 1;
+              break;
+            } catch (loadError) {
+              lastLoadError = loadError;
+              console.warn('Model load attempt failed, trying next candidate URL:', {
                 machineId: machineRow[this.columns.machineId] || null,
                 machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
-                machineTypeLinkId: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkId] || null : null,
-                link1: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkOne] || null : null,
-                link2: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkTwo] || null : null,
-                link3: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkThree] || null : null,
-                courseLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkOne] || null : null,
-                maintenanceLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkTwo] || null : null,
-                safetyLink: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkThree] || null : null,
-                positionX: this._toNumber(
-                  this._readRowValue(machineRow, this.columns.machinePositionX, this.readColumns.machinePositionX)
-                ),
-                positionZ: this._toNumber(
-                  this._readRowValue(machineRow, this.columns.machinePositionZ, this.readColumns.machinePositionZ)
-                ),
-                rotationY: this._toNumber(
-                  this._readRowValue(machineRow, this.columns.machineRotationY, this.readColumns.machineRotationY)
-                ),
-                createdFromDatabase: true,
-              }
-            );
+                modelReference,
+                candidateUrl,
+                error: loadError,
+              });
+            }
+          }
 
-            loaded = true;
-            loadedCount += 1;
-            break;
-          } catch (loadError) {
-            lastLoadError = loadError;
-            console.warn('Model load attempt failed, trying next candidate URL:', {
-              machineId: machineRow[this.columns.machineId] || null,
-              machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
+          if (!loaded) {
+            skippedCount += 1;
+            console.warn('Skipping machine because model could not be loaded from any candidate URL:', {
+              machineRow,
+              machineTypeRow,
               modelReference,
-              candidateUrl,
-              error: loadError,
+              lastLoadError,
             });
           }
-        }
-
-        if (!loaded) {
+        } catch (machineError) {
           skippedCount += 1;
-          console.warn('Skipping machine because model could not be loaded from any candidate URL:', {
-            machineRow,
-            machineTypeRow,
-            modelReference,
-            lastLoadError,
-          });
+          console.warn('Unexpected error loading machine:', machineError);
+        } finally {
+          onProgress?.(loadedCount + skippedCount, machineRows.length);
         }
-      }
+      }));
 
       this._hasLoadedPlacements = true;
       this.clearSceneDirty();

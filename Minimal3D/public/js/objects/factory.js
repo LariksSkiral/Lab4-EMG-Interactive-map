@@ -1,6 +1,20 @@
 /* This file has functions to create and load 3D objects, like models and shapes. We need this to add things to the scene. Without it, there would be nothing to see in 3D. For beginners: This is like a factory that builds and imports 3D items so we can place them in our virtual world. */
 /* Factory for creating objects - Functions to make and add 3D objects to the scene */
 W3D.Factory = {
+  // Shared DRACOLoader instance — reused across all GLTFLoader calls so DRACO-compressed
+  // models load correctly without needing a separate decoder per request.
+  _dracoLoader: (() => {
+    const draco = new THREE.DRACOLoader();
+    draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/');
+    return draco;
+  })(),
+
+  _makeLoader() {
+    const loader = new THREE.GLTFLoader();
+    loader.setDRACOLoader(this._dracoLoader);
+    return loader;
+  },
+
   // Helper to create a material (color and appearance) for meshes
   _mat(color = '#8a9aaa', opts = {}) {
     return new THREE.MeshLambertMaterial({
@@ -140,7 +154,7 @@ W3D.Factory = {
   // Load a 3D model from a .glb or .gltf file
   loadGLB(file) {
     const url = URL.createObjectURL(file); // Create a temporary URL for the file
-    const loader = new THREE.GLTFLoader(); // Loader for GLTF models
+    const loader = this._makeLoader();
     return new Promise((resolve, reject) => {
       loader.load(url, gltf => {
         const obj = this._registerLoadedModel(
@@ -161,7 +175,7 @@ W3D.Factory = {
 
   // Load a 3D model from a local .glb or .gltf file path
   loadLocalGLTF(path) {
-    const loader = new THREE.GLTFLoader(); // Loader for GLTF models
+    const loader = this._makeLoader();
     return new Promise((resolve, reject) => {
       loader.load(path, gltf => {
         const model = gltf.scene;
@@ -214,7 +228,7 @@ W3D.Factory = {
 
   // Load a 3D model from a remote URL (for example: Supabase Storage public file URL)
   loadRemoteGLTF(url, displayName = 'Supabase Model', options = {}) {
-    const loader = new THREE.GLTFLoader(); // Loader for GLTF models
+    const loader = this._makeLoader();
     return new Promise((resolve, reject) => {
       loader.load(url, gltf => {
         const obj = this._registerLoadedModel(

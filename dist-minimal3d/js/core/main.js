@@ -18,6 +18,24 @@ W3D.init = async function () {
     return error.message || fallbackMessage;
   };
 
+  const loadingScreen = document.getElementById('loading-screen');
+  const loadingBarFill = document.getElementById('loading-bar-fill');
+  const loadingLabel = document.getElementById('loading-label');
+
+  const updateLoadingProgress = (loaded, total) => {
+    if (!loadingBarFill || !loadingLabel) return;
+    const pct = total > 0 ? Math.round((loaded / total) * 100) : 100;
+    loadingBarFill.style.width = pct + '%';
+    loadingLabel.textContent = total > 0 ? `Model ${loaded} van ${total} geladen…` : 'Laden…';
+  };
+
+  const hideLoadingScreen = () => {
+    if (!loadingScreen || loadingScreen.classList.contains('is-done')) return;
+    loadingScreen.classList.add('is-done');
+    loadingScreen.addEventListener('transitionend', () => loadingScreen.remove(), { once: true });
+    setTimeout(() => loadingScreen.remove(), 700);
+  };
+
   // Set default grid visibility by mode:
   // - Admin page gets grid on by default
   // - Viewer page has grid off by default
@@ -317,6 +335,7 @@ W3D.init = async function () {
       if (W3D.Database) {
         W3D.Database.setControlsDisabled(true);
       }
+      hideLoadingScreen();
     };
 
     const showAdminPanel = async () => {
@@ -328,7 +347,8 @@ W3D.init = async function () {
       }
       if (W3D.Database) {
         W3D.Database.setControlsDisabled(false);
-        await W3D.Database.loadSavedMachinesIntoScene();
+        await W3D.Database.loadSavedMachinesIntoScene(false, updateLoadingProgress);
+        hideLoadingScreen();
       }
     };
 
@@ -763,7 +783,10 @@ W3D.init = async function () {
   } else if (W3D.Database && W3D.Supabase && W3D.Supabase.client) {
     // Viewer mode has no auth panels, so we restore saved machines immediately.
     W3D.Database.setControlsDisabled(true);
-    await W3D.Database.loadSavedMachinesIntoScene();
+    await W3D.Database.loadSavedMachinesIntoScene(false, updateLoadingProgress);
+    hideLoadingScreen();
+  } else {
+    hideLoadingScreen();
   }
 };
 

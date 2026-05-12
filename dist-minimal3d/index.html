@@ -12,8 +12,62 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" crossorigin href="/assets/ui-BwlOxddV.css">
+  <style>
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #1a1d23;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      transition: opacity 0.5s ease;
+    }
+    #loading-screen.is-done {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .loading-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 17px;
+      font-weight: 600;
+      color: #e8720c;
+      letter-spacing: 0.02em;
+      margin-bottom: 6px;
+    }
+    .loading-bar-track {
+      width: 240px;
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .loading-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #e8720c;
+      border-radius: 2px;
+      transition: width 0.35s ease;
+    }
+    .loading-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.02em;
+    }
+  </style>
 </head>
 <body>
+  <div id="loading-screen" role="status" aria-live="polite" aria-label="Applicatie laden">
+    <div class="loading-logo">⬡ Mechanische Werkplaats</div>
+    <div class="loading-bar-track">
+      <div id="loading-bar-fill" class="loading-bar-fill"></div>
+    </div>
+    <div id="loading-label" class="loading-label">Laden…</div>
+  </div>
+
   <div class="app-shell">
     <header class="topbar">
       <div class="tb-left">
@@ -121,6 +175,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script src="js/core/state.js"></script>
