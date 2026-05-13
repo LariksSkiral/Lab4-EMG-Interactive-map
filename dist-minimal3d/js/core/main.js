@@ -18,24 +18,6 @@ W3D.init = async function () {
     return error.message || fallbackMessage;
   };
 
-  const loadingScreen = document.getElementById('loading-screen');
-  const loadingBarFill = document.getElementById('loading-bar-fill');
-  const loadingLabel = document.getElementById('loading-label');
-
-  const updateLoadingProgress = (loaded, total) => {
-    if (!loadingBarFill || !loadingLabel) return;
-    const pct = total > 0 ? Math.round((loaded / total) * 100) : 100;
-    loadingBarFill.style.width = pct + '%';
-    loadingLabel.textContent = total > 0 ? `Model ${loaded} van ${total} geladen…` : 'Laden…';
-  };
-
-  const hideLoadingScreen = () => {
-    if (!loadingScreen || loadingScreen.classList.contains('is-done')) return;
-    loadingScreen.classList.add('is-done');
-    loadingScreen.addEventListener('transitionend', () => loadingScreen.remove(), { once: true });
-    setTimeout(() => loadingScreen.remove(), 700);
-  };
-
   // Set default grid visibility by mode:
   // - Admin page gets grid on by default
   // - Viewer page has grid off by default
@@ -281,19 +263,21 @@ W3D.init = async function () {
     });
   }
 
-  // Step 2: Load your default local model so the scene is not empty at start.
-  // Load a local 3D model only when the file is reachable on this deployment.
-  const defaultModelPath = "models/plattegrond.glb";
-  try {
-    const modelCheck = await fetch(defaultModelPath, { method: "HEAD" });
-    if (modelCheck.ok || modelCheck.status === 405) {
-      W3D.Factory.loadLocalGLTF(defaultModelPath);
+  // Step 2: Load your default local models so the scene is not empty at start.
+  // Load local 3D models only when the files are reachable on this deployment.
+  const defaultModelPaths = ["models/plattegrond.glb", "models/pilaar.glb"];
+  for (const modelPath of defaultModelPaths) {
+    try {
+      const modelCheck = await fetch(modelPath, { method: "HEAD" });
+      if (modelCheck.ok || modelCheck.status === 405) {
+        W3D.Factory.loadLocalGLTF(modelPath);
+      }
+    } catch (modelErr) {
+      console.warn(
+        `Default local model ${modelPath} is not available on this deployment.`,
+        modelErr,
+      );
     }
-  } catch (modelErr) {
-    console.warn(
-      "Default local model is not available on this deployment.",
-      modelErr,
-    );
   }
 
   // Step 3: Find key UI elements for auth-driven admin view behavior.

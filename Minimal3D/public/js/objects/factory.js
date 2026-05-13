@@ -218,6 +218,54 @@ W3D.Factory = {
             });
           });
         }
+
+        // Handle pillar model with same render settings but as a separate instance
+        if (path.toLowerCase().includes('pilaar')) {
+          const box = new THREE.Box3().setFromObject(model);
+          model.position.y -= box.min.y;
+
+          const pillarMatOverrides = {
+            'pilaar': { color: 0xffffff /*, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            // Add more pillar-specific materials here if needed
+          };
+          gltf.scene.traverse(child => {
+            if (!child.isMesh) return;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              const overrides = pillarMatOverrides[mat.name];
+              if (!overrides) return;
+              if (overrides.color     !== undefined) mat.color.set(overrides.color);
+              if (overrides.roughness !== undefined) mat.roughness = overrides.roughness;
+              if (overrides.metalness !== undefined) mat.metalness = overrides.metalness;
+              if (overrides.opacity   !== undefined) { mat.opacity = overrides.opacity; mat.transparent = overrides.opacity < 1; }
+              mat.needsUpdate = true;
+            });
+          });
+        }
+
+        // Handle walls model with same render settings but as a separate instance
+        if (path.toLowerCase().includes('walls')) {
+          const box = new THREE.Box3().setFromObject(model);
+          model.position.y -= box.min.y;
+
+          const wallsMatOverrides = {
+            'walls': { color: 0xffffff /*, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            // Add more walls-specific materials here if needed
+          };
+          gltf.scene.traverse(child => {
+            if (!child.isMesh) return;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              const overrides = wallsMatOverrides[mat.name];
+              if (!overrides) return;
+              if (overrides.color     !== undefined) mat.color.set(overrides.color);
+              if (overrides.roughness !== undefined) mat.roughness = overrides.roughness;
+              if (overrides.metalness !== undefined) mat.metalness = overrides.metalness;
+              if (overrides.opacity   !== undefined) { mat.opacity = overrides.opacity; mat.transparent = overrides.opacity < 1; }
+              mat.needsUpdate = true;
+            });
+          });
+        }
         resolve(obj);
       }, undefined, err => {
         console.error('Failed to load local model:', err); // Log errors
@@ -241,6 +289,39 @@ W3D.Factory = {
           },
           options
         );
+
+        // Apply material overrides for Supabase-loaded models (machines, not map or pillar)
+        // Customize roughness, metalness, and opacity per material name
+        const supabaseMaterialOverrides = {
+          // Define material-specific settings here by material name
+          // Example: 'metalPart': { roughness: 0.3, metalness: 0.9, opacity: 1.0 },
+          // Example: 'glassPart': { roughness: 0.1, metalness: 0.0, opacity: 0.7 },
+        };
+
+        gltf.scene.traverse(child => {
+          if (!child.isMesh) return;
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(mat => {
+            // Check if this material has specific overrides
+            const overrides = supabaseMaterialOverrides[mat.name];
+            
+            // Apply overrides if they exist, otherwise use the material from the GLB file
+            if (overrides) {
+              if (overrides.roughness !== undefined) mat.roughness = overrides.roughness;
+              if (overrides.metalness !== undefined) mat.metalness = overrides.metalness;
+              if (overrides.opacity !== undefined) { mat.opacity = overrides.opacity; mat.transparent = overrides.opacity < 1; }
+            }
+            // Uncomment below to apply default settings to all materials not in overrides:
+            else {
+            //   mat.roughness = 0.7;      // Slightly rough (not too shiny)
+             //   mat.metalness = 0.7;      // Non-metallic by default
+            //   mat.opacity = 1.0;
+            //   mat.transparent = false;
+             }
+            mat.needsUpdate = true;
+          });
+        });
+
         resolve(obj);
       }, undefined, err => {
         console.error('Failed to load remote model:', err); // Log errors

@@ -99,6 +99,19 @@ W3D.initRenderer = function() {
   W3D.orbitControls.minDistance = 0.5;
   W3D.orbitControls.maxDistance = 200;
 
+
+  W3D.orbitControls.addEventListener('start', function() {
+  if (W3D.cameraFocus) W3D.cameraFocus.active = false;
+});
+
+  W3D.cameraFocus = {
+    active: false,
+    speed: 0.08,
+    targetPosition: new THREE.Vector3(),
+    targetLookAt: new THREE.Vector3(),
+    topZoom: null,
+  };
+
   const floorY = 0;
   const floorEpsilon = 0.05;
 
@@ -194,8 +207,62 @@ W3D.initRenderer = function() {
   // Animation loop - runs every frame to update and draw
   (function animate() {
     requestAnimationFrame(animate);
+
+    if (W3D.cameraFocus && W3D.cameraFocus.active) {
+      const focus = W3D.cameraFocus;
+      const cam = W3D.viewMode === 'top' ? W3D.cameraTop : W3D.camera;
+      cam.position.lerp(focus.targetPosition, focus.speed);
+      W3D.orbitControls.target.lerp(focus.targetLookAt, focus.speed);
+      if (W3D.viewMode === 'top' && typeof focus.topZoom === 'number') {
+        cam.zoom = THREE.MathUtils.lerp(cam.zoom, focus.topZoom, focus.speed);
+        cam.updateProjectionMatrix();
+      }
+      const posDone = cam.position.distanceTo(focus.targetPosition) < 0.05;
+      const targetDone = W3D.orbitControls.target.distanceTo(focus.targetLookAt) < 0.05;
+      const zoomDone = W3D.viewMode !== 'top' || typeof focus.topZoom !== 'number'
+        ? true : Math.abs(cam.zoom - focus.topZoom) < 0.01;
+      if (posDone && targetDone && zoomDone) {
+        cam.position.copy(focus.targetPosition);
+        W3D.orbitControls.target.copy(focus.targetLookAt);
+        if (W3D.viewMode === 'top' && typeof focus.topZoom === 'number') {
+          cam.zoom = focus.topZoom;
+          cam.updateProjectionMatrix();
+        }
+        focus.active = false;
+      }
+    }
+
     W3D.orbitControls.update();
     clampViewAboveFloor();
     W3D.renderer.render(W3D.scene, W3D.activeCamera);
   })();
+};
+
+W3D.focusCameraOnObject = function(objectEntry) {
+  if (!objectEntry || !objectEntry.mesh) return;
+
+  const box = new THREE.Box3().setFromObject(objectEntry.mesh);
+  if (box.isEmpty()) return;
+
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  const focus = W3D.cameraFocus;
+  focus.targetLookAt.copy(center);
+
+  if (W3D.viewMode === '3d') {
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const distance = maxDim * 2.5;
+    const direction = W3D.camera.position.clone().sub(W3D.orbitControls.target).normalize();
+    focus.targetPosition.copy(center).addScaledVector(direction, distance);
+    focus.topZoom = null;
+  } else {
+    focus.targetPosition.set(center.x, W3D.cameraTop.position.y, center.z);
+    focus.topZoom = null;
+  }
+
+  focus.active = true;
 };

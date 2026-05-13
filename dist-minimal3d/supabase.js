@@ -39,9 +39,6 @@ W3D.Supabase = {
 		status: null,
 	},
 
-	// Optional callback for the admin UI to open the edit form for one library item.
-	onEditMachineTypeRequested: null,
-
 	// Read an environment value and clean it.
 	// Why this is needed:
 	// - In development, Vite replaces placeholders like %VITE_SUPABASE_URL%.
@@ -116,72 +113,39 @@ W3D.Supabase = {
 		return pathParts.length ? pathParts[pathParts.length - 1] : normalizedPath;
 	},
 
-	async _fetchMachineTypeLibraryEntries() {
+	async _fetchMachineTypeNamesByStoragePath() {
 		if (!this.client) return new Map();
 
-		const { data: machineTypes, error: machineTypesError } = await this.client
+		const { data, error } = await this.client
 			.from('machine_types')
-			.select('id, name, model');
+			.select('name, model');
 
-		if (machineTypesError) {
-			console.warn('Machine types could not be loaded for the model library:', machineTypesError);
+		if (error) {
+			console.warn('Machine type names could not be loaded for the model library:', error);
 			return new Map();
 		}
 
-		const { data: machineTypeLinks, error: machineTypeLinksError } = await this.client
-			.from('machine_type_links')
-			.select('machine_type_id, course_url, maintenance_url, safety_url');
-
-		if (machineTypeLinksError) {
-			console.warn('Machine type links could not be loaded for the model library:', machineTypeLinksError);
-			return new Map();
-		}
-
-		const linksByMachineTypeId = new Map();
-		(machineTypeLinks || []).forEach(row => {
-			const machineTypeId = row && row.machine_type_id != null ? row.machine_type_id : null;
-			if (machineTypeId == null) return;
-			linksByMachineTypeId.set(machineTypeId, {
-				link1: row.course_url || '',
-				link2: row.maintenance_url || '',
-				link3: row.safety_url || '',
-			});
-		});
-
-		const entriesByStoragePath = new Map();
-		(machineTypes || []).forEach(row => {
+		const namesByStoragePath = new Map();
+		(data || []).forEach(row => {
 			const storagePath = row && row.model ? String(row.model).trim() : '';
 			const machineName = row && row.name ? String(row.name).trim() : '';
 			const fileName = this._getFileNameFromPath(storagePath);
-			const machineTypeId = row && row.id != null ? row.id : null;
-			const machineLinks = machineTypeId != null
-				? (linksByMachineTypeId.get(machineTypeId) || { link1: '', link2: '', link3: '' })
-				: { link1: '', link2: '', link3: '' };
 
-			if (!storagePath) return;
+			if (!storagePath || !machineName) return;
 
-			const entry = {
-				machineTypeId,
-				name: machineName || fileName || storagePath,
-				storagePath,
-				link1: machineLinks.link1,
-				link2: machineLinks.link2,
-				link3: machineLinks.link3,
-			};
-
-			entriesByStoragePath.set(storagePath, entry);
+			namesByStoragePath.set(storagePath, machineName);
 
 			const normalizedPath = this._normalizeStoragePath(storagePath);
 			if (normalizedPath) {
-				entriesByStoragePath.set(normalizedPath, entry);
+				namesByStoragePath.set(normalizedPath, machineName);
 			}
 
 			if (fileName) {
-				entriesByStoragePath.set(fileName, entry);
+				namesByStoragePath.set(fileName, machineName);
 			}
 		});
 
-		return entriesByStoragePath;
+		return namesByStoragePath;
 	},
 
 	// Show a human-friendly message in the UI panel.
@@ -520,21 +484,16 @@ W3D.Supabase = {
 
 		// Keep only 3D model files we care about.
 		const glbFiles = (data || []).filter(item => /\.(glb|gltf)$/i.test(item.name || ''));
-		const machineTypeEntriesByStoragePath = await this._fetchMachineTypeLibraryEntries();
-		const getMachineTypeEntry = (item) => {
+		const machineTypeNamesByStoragePath = await this._fetchMachineTypeNamesByStoragePath();
+		const getDisplayName = (item) => {
 			const filePath = folder ? `${folder}/${item.name}` : item.name;
 			const normalizedPath = this._normalizeStoragePath(filePath);
 			const fileName = this._getFileNameFromPath(filePath);
-			return machineTypeEntriesByStoragePath.get(filePath)
-				|| machineTypeEntriesByStoragePath.get(normalizedPath)
-				|| machineTypeEntriesByStoragePath.get(item.name)
-				|| machineTypeEntriesByStoragePath.get(fileName)
-				|| null;
-		};
-
-		const getDisplayName = (item) => {
-			const entry = getMachineTypeEntry(item);
-			return entry && entry.name ? entry.name : item.name;
+			return machineTypeNamesByStoragePath.get(filePath)
+				|| machineTypeNamesByStoragePath.get(normalizedPath)
+				|| machineTypeNamesByStoragePath.get(item.name)
+				|| machineTypeNamesByStoragePath.get(fileName)
+				|| item.name;
 		};
 
 		// ── Update hidden <select> (used by loadSelectedFileIntoScene) ────────
@@ -567,7 +526,6 @@ W3D.Supabase = {
 			// One list item per model file.
 			glbFiles.forEach(item => {
 				const filePath = folder ? `${folder}/${item.name}` : item.name;
-				const machineTypeEntry = getMachineTypeEntry(item);
 				const displayName = getDisplayName(item);
 
 				const div = document.createElement('div');
@@ -575,29 +533,6 @@ W3D.Supabase = {
 				div.dataset.filePath = filePath;
 				div.innerHTML = `<span class="sb-file-item-icon">◈</span>` +
 					`<span class="sb-file-item-name">${displayName}</span>`;
-
-				if (machineTypeEntry && machineTypeEntry.machineTypeId != null) {
-					const editButton = document.createElement('button');
-					editButton.type = 'button';
-					editButton.className = 'sb-file-item-edit';
-					editButton.textContent = '✎';
-					editButton.title = `Bewerk ${displayName}`;
-					editButton.setAttribute('aria-label', `Bewerk ${displayName}`);
-					editButton.addEventListener('click', (event) => {
-						event.stopPropagation();
-						if (typeof this.onEditMachineTypeRequested === 'function') {
-							this.onEditMachineTypeRequested({
-								machineTypeId: machineTypeEntry.machineTypeId,
-								name: machineTypeEntry.name,
-								storagePath: machineTypeEntry.storagePath || filePath,
-								link1: machineTypeEntry.link1 || '',
-								link2: machineTypeEntry.link2 || '',
-								link3: machineTypeEntry.link3 || '',
-							});
-						}
-					});
-					div.appendChild(editButton);
-				}
 
 				div.addEventListener('click', () => {
 					// Deselect all other items first.
