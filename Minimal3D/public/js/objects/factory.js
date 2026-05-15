@@ -314,7 +314,7 @@ W3D.Factory = {
             // Uncomment below to apply default settings to all materials not in overrides:
             else {
             //   mat.roughness = 0.7;      // Slightly rough (not too shiny)
-             //   mat.metalness = 0.7;      // Non-metallic by default
+               mat.metalness = 0.7;      // Non-metallic by default
             //   mat.opacity = 1.0;
             //   mat.transparent = false;
              }
