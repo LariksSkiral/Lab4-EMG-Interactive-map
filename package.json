@@ -1,10 +1,19 @@
 {
+  "name": "minimal3d-student",
+  "version": "1.0.0",
+  "description": "3D Interactive Map for Mechanische Werkplaats",
+  "author": "Mechanical Workshop Team",
+  "productName": "Mechanische Werkplaats",
+  "main": "Minimal3D/main.js",
   "scripts": {
     "dev": "vite",
     "dev:minimal3d": "vite --config vite.minimal3d.config.js",
+    "dev:electron": "concurrently \"npm run dev:minimal3d\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
     "build:minimal3d": "vite build --config vite.minimal3d.config.js",
-    "preview": "vite preview"
+    "build:electron": "npm run build:minimal3d",
+    "preview": "vite preview",
+    "start": "electron ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
@@ -14,7 +23,10 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
+    "electron": "^42.1.0",
     "postcss": "^8.5.8",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "^4.2.2",
+    "wait-on": "^9.0.10"
   }
 }

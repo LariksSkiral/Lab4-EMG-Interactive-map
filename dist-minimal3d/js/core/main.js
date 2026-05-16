@@ -190,6 +190,9 @@ W3D.init = async function () {
       selectedMachine = objectEntry;
       applyHighlight(objectEntry.mesh);
       updateActionIcons();
+      if (W3D.focusCameraOnObject) {
+        W3D.focusCameraOnObject(objectEntry);
+      }
     };
 
     const pickMachine = event => {
@@ -265,12 +268,35 @@ W3D.init = async function () {
 
   // Step 2: Load your default local models so the scene is not empty at start.
   // Load local 3D models only when the files are reachable on this deployment.
-  const defaultModelPaths = ["models/plattegrond.glb", "models/pilaar.glb"];
+  
+  // Detect if running in Electron and whether it's dev or production
+  const isElectron = typeof window.electronAPI !== 'undefined';
+  const isDevMode = isElectron ? window.electronAPI.isDev : true; // Default to dev mode for web
+  
+  console.log('Model Loading Config:', { isElectron, isDevMode });
+  
+  const defaultModelPaths = ["models/plattegrond.glb", "models/pilaar.glb", "models/walls.glb"];
   for (const modelPath of defaultModelPaths) {
     try {
-      const modelCheck = await fetch(modelPath, { method: "HEAD" });
-      if (modelCheck.ok || modelCheck.status === 405) {
-        W3D.Factory.loadLocalGLTF(modelPath);
+      // In production Electron, convert relative paths to file:// URLs
+      // In dev mode (web or Electron), use relative paths
+      let finalPath = modelPath;
+      if (isElectron && !isDevMode && window.electronAPI.resourcesPath) {
+        finalPath = `file://${window.electronAPI.resourcesPath}/${modelPath}`;
+        console.log(`Production Electron: Using file:// path: ${finalPath}`);
+      } else {
+        console.log(`Dev/Web mode: Using relative path: ${finalPath}`);
+      }
+      
+      // For file:// URLs, we can't use fetch HEAD, so just attempt to load
+      if (isElectron && !isDevMode) {
+        W3D.Factory.loadLocalGLTF(finalPath);
+      } else {
+        // For web/dev, use the original HEAD check
+        const modelCheck = await fetch(modelPath, { method: "HEAD" });
+        if (modelCheck.ok || modelCheck.status === 405) {
+          W3D.Factory.loadLocalGLTF(modelPath);
+        }
       }
     } catch (modelErr) {
       console.warn(
@@ -319,7 +345,6 @@ W3D.init = async function () {
       if (W3D.Database) {
         W3D.Database.setControlsDisabled(true);
       }
-      hideLoadingScreen();
     };
 
     const showAdminPanel = async () => {
@@ -331,8 +356,7 @@ W3D.init = async function () {
       }
       if (W3D.Database) {
         W3D.Database.setControlsDisabled(false);
-        await W3D.Database.loadSavedMachinesIntoScene(false, updateLoadingProgress);
-        hideLoadingScreen();
+        await W3D.Database.loadSavedMachinesIntoScene();
       }
     };
 
@@ -441,6 +465,13 @@ W3D.init = async function () {
       closeDrawerBtn.addEventListener("click", closeDrawer);
     }
 
+    if (openMachineFormBtn) {
+      openMachineFormBtn.addEventListener("click", () => {
+        openDrawer();
+        openOverlay();
+      });
+    }
+
     if (closeOverlayBtn) {
       closeOverlayBtn.addEventListener("click", () => {
         closeOverlay();
@@ -456,27 +487,12 @@ W3D.init = async function () {
     const modelPreviewClear = document.getElementById("model-preview-clear");
     const saveMachineBtn = document.getElementById("save-machine-btn");
     const machineStatus = document.getElementById("machine-status");
-    const machineOverlayTitle = machineOverlay
-      ? machineOverlay.querySelector(".overlay-title")
-      : null;
     const machineNameInput = document.getElementById("machine-name");
     const link1Input = document.getElementById("link1");
     const link2Input = document.getElementById("link2");
     const link3Input = document.getElementById("link3");
 
     let selectedModelFile = null;
-    const defaultMachineOverlayTitle = machineOverlayTitle
-      ? machineOverlayTitle.textContent
-      : "Nieuwe machine toevoegen";
-    const defaultSaveMachineLabel = saveMachineBtn
-      ? saveMachineBtn.textContent
-      : "Machine opslaan";
-    let machineFormState = {
-      mode: "create",
-      machineTypeId: null,
-      existingStoragePath: "",
-      existingFileName: "",
-    };
 
     const formatFileSize = (bytes) => {
       if (bytes === 0) return "0 B";
@@ -486,47 +502,12 @@ W3D.init = async function () {
       return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
     };
 
-    const showMachineStatus = (message, state = "") => {
-      if (!machineStatus) return;
-      machineStatus.textContent = message || "";
-      machineStatus.classList.toggle("is-ok", state === "ok");
-      machineStatus.classList.toggle("is-error", state === "error");
-    };
-
-    const renderExistingModelPreview = () => {
-      if (!machineFormState.existingStoragePath) return false;
-      if (modelPreviewName) {
-        modelPreviewName.textContent = machineFormState.existingFileName || "Huidig model";
-      }
-      if (modelPreviewSize) {
-        modelPreviewSize.textContent = "Huidig model";
-      }
-      if (modelPreview) modelPreview.classList.remove("is-hidden");
-      if (modelDropZone) modelDropZone.classList.add("has-file");
-      return true;
-    };
-
-    const syncMachineFormLabels = () => {
-      const isEditMode = machineFormState.mode === "edit";
-      if (machineOverlayTitle) {
-        machineOverlayTitle.textContent = isEditMode
-          ? "Machine bewerken"
-          : defaultMachineOverlayTitle;
-      }
-      if (saveMachineBtn) {
-        saveMachineBtn.textContent = isEditMode
-          ? "Wijzigingen opslaan"
-          : defaultSaveMachineLabel;
-      }
-    };
-
     const handleModelFileSelected = (file) => {
       selectedModelFile = file;
       if (file) {
         if (modelPreviewName) modelPreviewName.textContent = file.name;
-        if (modelPreviewSize) {
+        if (modelPreviewSize)
           modelPreviewSize.textContent = formatFileSize(file.size);
-        }
         if (modelPreview) modelPreview.classList.remove("is-hidden");
         if (modelDropZone) modelDropZone.classList.add("has-file");
         updateSaveButton();
@@ -538,57 +519,16 @@ W3D.init = async function () {
     const clearModelFile = () => {
       selectedModelFile = null;
       if (modelFileInput) modelFileInput.value = "";
-      if (!renderExistingModelPreview()) {
-        if (modelPreview) modelPreview.classList.add("is-hidden");
-        if (modelDropZone) modelDropZone.classList.remove("has-file");
-      }
+      if (modelPreview) modelPreview.classList.add("is-hidden");
+      if (modelDropZone) modelDropZone.classList.remove("has-file");
       updateSaveButton();
     };
 
     const updateSaveButton = () => {
       const machineName = machineNameInput ? machineNameInput.value.trim() : "";
       const hasName = machineName.length > 0;
-      const hasModel = selectedModelFile !== null || Boolean(machineFormState.existingStoragePath);
+      const hasModel = selectedModelFile !== null;
       if (saveMachineBtn) saveMachineBtn.disabled = !(hasName && hasModel);
-    };
-
-    const resetMachineForm = () => {
-      machineFormState = {
-        mode: "create",
-        machineTypeId: null,
-        existingStoragePath: "",
-        existingFileName: "",
-      };
-
-      if (machineNameInput) machineNameInput.value = "";
-      if (link1Input) link1Input.value = "";
-      if (link2Input) link2Input.value = "";
-      if (link3Input) link3Input.value = "";
-
-      syncMachineFormLabels();
-      showMachineStatus("");
-      clearModelFile();
-    };
-
-    const openMachineFormForEdit = (machineTypeEntry) => {
-      machineFormState = {
-        mode: "edit",
-        machineTypeId: machineTypeEntry.machineTypeId,
-        existingStoragePath: machineTypeEntry.storagePath || "",
-        existingFileName:
-          (machineTypeEntry.storagePath || "").split("/").pop() || "",
-      };
-
-      if (machineNameInput) machineNameInput.value = machineTypeEntry.name || "";
-      if (link1Input) link1Input.value = machineTypeEntry.link1 || "";
-      if (link2Input) link2Input.value = machineTypeEntry.link2 || "";
-      if (link3Input) link3Input.value = machineTypeEntry.link3 || "";
-
-      syncMachineFormLabels();
-      showMachineStatus("");
-      clearModelFile();
-      openDrawer();
-      openOverlay();
     };
 
     if (modelFileInput) {
@@ -616,6 +556,7 @@ W3D.init = async function () {
             dt.items.add(file);
             modelFileInput.files = dt.files;
           } catch (dtErr) {
+            // Fallback for browsers without DataTransfer support
             selectedModelFile = file;
           }
           handleModelFileSelected(file);
@@ -630,44 +571,29 @@ W3D.init = async function () {
       });
     }
 
+    // Update save button when name changes
     if (machineNameInput) {
       machineNameInput.addEventListener("input", updateSaveButton);
     }
 
-    if (openMachineFormBtn) {
-      openMachineFormBtn.addEventListener("click", () => {
-        resetMachineForm();
-        openDrawer();
-        openOverlay();
-      });
-    }
-
-    if (W3D.Supabase) {
-      W3D.Supabase.onEditMachineTypeRequested = (machineTypeEntry) => {
-        openMachineFormForEdit(machineTypeEntry);
-      };
-    }
-
+    // Save machine logic
     if (saveMachineBtn) {
       saveMachineBtn.addEventListener("click", async () => {
         const machineName = machineNameInput ? machineNameInput.value.trim() : "";
         const link1 = link1Input ? link1Input.value.trim() : "";
         const link2 = link2Input ? link2Input.value.trim() : "";
         const link3 = link3Input ? link3Input.value.trim() : "";
-        const isEditMode = machineFormState.mode === "edit";
 
-        if (!machineName || !W3D.Supabase || !W3D.Database) {
-          return;
-        }
-
-        if (!selectedModelFile && !machineFormState.existingStoragePath) {
+        if (!machineName || !selectedModelFile || !W3D.Supabase || !W3D.Database) {
           return;
         }
 
         saveMachineBtn.disabled = true;
-        showMachineStatus(
-          isEditMode ? 'Machine wordt bijgewerkt...' : 'Machine wordt opgeslagen...'
-        );
+        if (machineStatus) {
+          machineStatus.textContent = 'Machine wordt opgeslagen...';
+          machineStatus.classList.remove("is-ok");
+          machineStatus.classList.remove("is-error");
+        }
 
         try {
           if (!W3D.Supabase.client) {
@@ -676,51 +602,41 @@ W3D.init = async function () {
             );
           }
 
-          if (isEditMode) {
-            await W3D.Database.updateMachineTypeWithFile({
-              machineTypeId: machineFormState.machineTypeId,
-              name: machineName,
-              file: selectedModelFile,
-              existingStoragePath: machineFormState.existingStoragePath,
-              links: [link1, link2, link3],
-            });
-          } else {
-            await W3D.Database.createMachineTypeWithFile({
-              name: machineName,
-              file: selectedModelFile,
-              links: [link1, link2, link3],
-            });
-          }
+          await W3D.Database.createMachineTypeWithFile({
+            name: machineName,
+            file: selectedModelFile,
+            links: [link1, link2, link3],
+          });
 
           if (W3D.Supabase.listFilesAndPopulateDropdown) {
             await W3D.Supabase.listFilesAndPopulateDropdown();
           }
 
-          showMachineStatus(
-            isEditMode
-              ? `Machine "${machineName}" is bijgewerkt.`
-              : `Machine "${machineName}" is opgeslagen.`,
-            "ok"
-          );
+          if (machineStatus) {
+            machineStatus.textContent = `Machine "${machineName}" is opgeslagen.`;
+            machineStatus.classList.remove("is-error");
+            machineStatus.classList.add("is-ok");
+          }
+
+          if (machineNameInput) machineNameInput.value = "";
+          if (link1Input) link1Input.value = "";
+          if (link2Input) link2Input.value = "";
+          if (link3Input) link3Input.value = "";
+          clearModelFile();
 
           setTimeout(() => {
-            resetMachineForm();
             closeOverlay();
             openDrawer();
           }, 2000);
         } catch (error) {
           console.error("Error saving machine:", error);
-          showMachineStatus(
-            friendlyClientMessage(
-              error,
-              isEditMode
-                ? 'Het bijwerken van de machine is niet gelukt.'
-                : 'Het opslaan van de machine is niet gelukt.'
-            ),
-            "error"
-          );
+          if (machineStatus) {
+            machineStatus.textContent = friendlyClientMessage(error, 'Het opslaan van de machine is niet gelukt.');
+            machineStatus.classList.remove("is-ok");
+            machineStatus.classList.add("is-error");
+          }
         } finally {
-          updateSaveButton();
+          saveMachineBtn.disabled = false;
         }
       });
     }
@@ -767,10 +683,7 @@ W3D.init = async function () {
   } else if (W3D.Database && W3D.Supabase && W3D.Supabase.client) {
     // Viewer mode has no auth panels, so we restore saved machines immediately.
     W3D.Database.setControlsDisabled(true);
-    await W3D.Database.loadSavedMachinesIntoScene(false, updateLoadingProgress);
-    hideLoadingScreen();
-  } else {
-    hideLoadingScreen();
+    await W3D.Database.loadSavedMachinesIntoScene();
   }
 };
 

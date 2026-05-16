@@ -242,6 +242,30 @@ W3D.Factory = {
             });
           });
         }
+
+        // Handle walls model with same render settings but as a separate instance
+        if (path.toLowerCase().includes('walls')) {
+          const box = new THREE.Box3().setFromObject(model);
+          model.position.y -= box.min.y;
+
+          const wallsMatOverrides = {
+            'walls': { color: 0xffffff /*, roughness: 0.8, metalness: 0.0, opacity: 1.0 */ },
+            // Add more walls-specific materials here if needed
+          };
+          gltf.scene.traverse(child => {
+            if (!child.isMesh) return;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              const overrides = wallsMatOverrides[mat.name];
+              if (!overrides) return;
+              if (overrides.color     !== undefined) mat.color.set(overrides.color);
+              if (overrides.roughness !== undefined) mat.roughness = overrides.roughness;
+              if (overrides.metalness !== undefined) mat.metalness = overrides.metalness;
+              if (overrides.opacity   !== undefined) { mat.opacity = overrides.opacity; mat.transparent = overrides.opacity < 1; }
+              mat.needsUpdate = true;
+            });
+          });
+        }
         resolve(obj);
       }, undefined, err => {
         console.error('Failed to load local model:', err); // Log errors
@@ -288,12 +312,12 @@ W3D.Factory = {
               if (overrides.opacity !== undefined) { mat.opacity = overrides.opacity; mat.transparent = overrides.opacity < 1; }
             }
             // Uncomment below to apply default settings to all materials not in overrides:
-            // else {
+            else {
             //   mat.roughness = 0.7;      // Slightly rough (not too shiny)
-            //   mat.metalness = 0.0;      // Non-metallic by default
+               mat.metalness = 0.7;      // Non-metallic by default
             //   mat.opacity = 1.0;
             //   mat.transparent = false;
-            // }
+             }
             mat.needsUpdate = true;
           });
         });

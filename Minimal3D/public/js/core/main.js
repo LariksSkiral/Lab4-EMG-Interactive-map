@@ -268,12 +268,35 @@ W3D.init = async function () {
 
   // Step 2: Load your default local models so the scene is not empty at start.
   // Load local 3D models only when the files are reachable on this deployment.
+  
+  // Detect if running in Electron and whether it's dev or production
+  const isElectron = typeof window.electronAPI !== 'undefined';
+  const isDevMode = isElectron ? window.electronAPI.isDev : true; // Default to dev mode for web
+  
+  console.log('Model Loading Config:', { isElectron, isDevMode });
+  
   const defaultModelPaths = ["models/plattegrond.glb", "models/pilaar.glb", "models/walls.glb"];
   for (const modelPath of defaultModelPaths) {
     try {
-      const modelCheck = await fetch(modelPath, { method: "HEAD" });
-      if (modelCheck.ok || modelCheck.status === 405) {
-        W3D.Factory.loadLocalGLTF(modelPath);
+      // In production Electron, convert relative paths to file:// URLs
+      // In dev mode (web or Electron), use relative paths
+      let finalPath = modelPath;
+      if (isElectron && !isDevMode && window.electronAPI.resourcesPath) {
+        finalPath = `file://${window.electronAPI.resourcesPath}/${modelPath}`;
+        console.log(`Production Electron: Using file:// path: ${finalPath}`);
+      } else {
+        console.log(`Dev/Web mode: Using relative path: ${finalPath}`);
+      }
+      
+      // For file:// URLs, we can't use fetch HEAD, so just attempt to load
+      if (isElectron && !isDevMode) {
+        W3D.Factory.loadLocalGLTF(finalPath);
+      } else {
+        // For web/dev, use the original HEAD check
+        const modelCheck = await fetch(modelPath, { method: "HEAD" });
+        if (modelCheck.ok || modelCheck.status === 405) {
+          W3D.Factory.loadLocalGLTF(modelPath);
+        }
       }
     } catch (modelErr) {
       console.warn(
