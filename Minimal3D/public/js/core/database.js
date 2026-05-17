@@ -752,6 +752,10 @@ W3D.Database = {
         return;
       }
 
+      // We weten nu hoeveel machines er zijn → vertel de preloader het totaal bij.
+      // De preloader telt dan: 3 lokale + N Supabase = totaal.
+      if (W3D.Preloader) W3D.Preloader.addToTotal(machineRows.length);
+
       let loadedCount = 0;
       let skippedCount = 0;
 
@@ -811,6 +815,8 @@ W3D.Database = {
 
             loaded = true;
             loadedCount += 1;
+            // Model geladen → meld aan preloader zodat de balk verder schuift.
+            if (W3D.Preloader) W3D.Preloader.increment();
             break;
           } catch (loadError) {
             lastLoadError = loadError;
@@ -826,6 +832,8 @@ W3D.Database = {
 
         if (!loaded) {
           skippedCount += 1;
+          // Model mislukt → toch increment zodat de balk niet vastloopt.
+          if (W3D.Preloader) W3D.Preloader.increment();
           console.warn('Skipping machine because model could not be loaded from any candidate URL:', {
             machineRow,
             machineTypeRow,

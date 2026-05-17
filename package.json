@@ -12,8 +12,32 @@
     "build": "vite build",
     "build:minimal3d": "vite build --config vite.minimal3d.config.js",
     "build:electron": "npm run build:minimal3d",
+    "dist:electron": "npm run build:minimal3d && electron-builder",
     "preview": "vite preview",
     "start": "electron ."
+  },
+  "build": {
+    "appId": "com.emg.mechanischewerkplaats",
+    "productName": "Mechanische Werkplaats",
+    "directories": {
+      "output": "dist-electron-build"
+    },
+    "files": [
+      "Minimal3D/main.js",
+      "Minimal3D/preload.js",
+      "dist-minimal3d/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "Minimal3D/icon.png", "to": "icon.png" }
+    ],
+    "mac": {
+      "icon": "Minimal3D/icon.png",
+      "category": "public.app-category.education",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ]
+    }
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
@@ -25,6 +49,7 @@
     "autoprefixer": "^10.4.27",
     "concurrently": "^9.2.1",
     "electron": "^42.1.0",
+    "electron-builder": "^26.8.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
     "wait-on": "^9.0.10"

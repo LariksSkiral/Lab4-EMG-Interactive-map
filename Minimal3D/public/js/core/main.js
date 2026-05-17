@@ -25,29 +25,18 @@ W3D.init = async function () {
   const isAdmin = path.endsWith("admin.html") || path.endsWith("/admin.html");
   W3D.gridVisible = isAdmin;
 
-  // Step 1: Build the 3D world (camera, lights, grid, renderer).
-  W3D.initRenderer(); // Set up the 3D scene, camera, lights, etc.
-
-  // Step 1b: Initialise transform tools (select, move, rotate) if available.
-  if (W3D.Transform) W3D.Transform.init();
-
-  // Step 1c: Prepare database UI early so buttons can be enabled/disabled later.
+  // Step 1: Non-visual UI setup — runs immediately, no renderer needed.
   if (W3D.Database) W3D.Database.setupUI();
 
-  // Step 1d: Wire view-toggle buttons in the topbar.
+  // Step 2: Wire view-toggle buttons in the topbar.
   const btn3d = document.getElementById("btn-view-3d");
   const btnTop = document.getElementById("btn-view-top");
   if (btn3d)
-    btn3d.addEventListener(
-      "click",
-      () => W3D.setViewMode && W3D.setViewMode("3d"),
-    );
+    btn3d.addEventListener("click", () => W3D.setViewMode && W3D.setViewMode("3d"));
   if (btnTop)
-    btnTop.addEventListener(
-      "click",
-      () => W3D.setViewMode && W3D.setViewMode("top"),
-    );
+    btnTop.addEventListener("click", () => W3D.setViewMode && W3D.setViewMode("top"));
 
+  // Step 3: Viewer help modal — no renderer needed.
   const viewerHelpTrigger = document.getElementById('viewer-help-trigger');
   const viewerHelpModal = document.getElementById('viewer-help-modal');
   const viewerHelpClose = document.getElementById('viewer-help-close');
@@ -92,221 +81,260 @@ W3D.init = async function () {
     });
   }
 
-  const machineActionUI = document.getElementById('machine-action-icons');
-  if (machineActionUI) {
-    const canvas = W3D.renderer && W3D.renderer.domElement;
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    const actionButtons = Array.from(machineActionUI.querySelectorAll('.action-icon'));
-    let selectedMachine = null;
-    let highlightedMaterials = [];
-    let pointerDown = null;
+  // ── Scene initializer ────────────────────────────────────────────────────
+  // This function sets up the 3D world: renderer, controls, machine interactions,
+  // and loads the local models with preloader tracking.
+  //
+  // WHY is this a separate function?
+  // For the admin page we must check authentication FIRST. Only after confirming
+  // the user is logged in do we initialise the renderer and load models.
+  // For the viewer page we call this immediately.
+  //
+  // The _sceneReady flag ensures this runs at most once per page load,
+  // even if showAdminPanel() is called multiple times.
+  let _sceneReady = false;
 
-    const clearHighlight = () => {
-      highlightedMaterials.forEach(material => {
-        if (material._origEmissive) {
-          material.emissive.copy(material._origEmissive);
-          delete material._origEmissive;
-        }
-        material.emissiveIntensity = 0;
-      });
-      highlightedMaterials = [];
-    };
+  const initScene = async () => {
+    if (_sceneReady) return;
+    _sceneReady = true;
 
-    const applyHighlight = mesh => {
-      clearHighlight();
-      mesh.traverse(child => {
-        if (!child.isMesh || !child.material) return;
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach(material => {
-          if (!material.emissive) return;
-          if (!material._origEmissive) material._origEmissive = material.emissive.clone();
-          material.emissive.set(0xe8720c);
-          material.emissiveIntensity = 0.32;
-          highlightedMaterials.push(material);
+    // Reset and show the preloader, then set total to 3 local models.
+    // The lock prevents the preloader from closing until database models are also done.
+    if (W3D.Preloader) {
+      W3D.Preloader.reset();
+      W3D.Preloader.setTotal(3);
+      W3D.Preloader.lock();
+      W3D.Preloader.setStatus('Werkplaats laden...');
+    }
+
+    // Build the 3D world (camera, lights, grid, renderer).
+    W3D.initRenderer();
+
+    // Initialise transform tools (select, move, rotate) if available.
+    if (W3D.Transform) W3D.Transform.init();
+
+    // Machine selection & action UI — needs the renderer canvas.
+    const machineActionUI = document.getElementById('machine-action-icons');
+    if (machineActionUI) {
+      const canvas = W3D.renderer && W3D.renderer.domElement;
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      const actionButtons = Array.from(machineActionUI.querySelectorAll('.action-icon'));
+      let selectedMachine = null;
+      let highlightedMaterials = [];
+      let pointerDown = null;
+
+      const clearHighlight = () => {
+        highlightedMaterials.forEach(material => {
+          if (material._origEmissive) {
+            material.emissive.copy(material._origEmissive);
+            delete material._origEmissive;
+          }
+          material.emissiveIntensity = 0;
         });
-      });
-    };
-
-    const getSelectedMachineLink = action => {
-      if (!selectedMachine || !selectedMachine.props) return null;
-
-      const links = {
-        course: selectedMachine.props.link1 || selectedMachine.props.courseLink || null,
-        maintenance: selectedMachine.props.link2 || selectedMachine.props.maintenanceLink || null,
-        safety: selectedMachine.props.link3 || selectedMachine.props.safetyLink || null,
+        highlightedMaterials = [];
       };
 
-      return links[action] || null;
-    };
+      const applyHighlight = mesh => {
+        clearHighlight();
+        mesh.traverse(child => {
+          if (!child.isMesh || !child.material) return;
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach(material => {
+            if (!material.emissive) return;
+            if (!material._origEmissive) material._origEmissive = material.emissive.clone();
+            material.emissive.set(0xe8720c);
+            material.emissiveIntensity = 0.32;
+            highlightedMaterials.push(material);
+          });
+        });
+      };
 
-    const updateActionButtons = () => {
-      actionButtons.forEach(button => {
-        const action = button.getAttribute('data-action');
-        button.disabled = !getSelectedMachineLink(action);
-      });
-    };
+      const getSelectedMachineLink = action => {
+        if (!selectedMachine || !selectedMachine.props) return null;
 
-    const updateActionIcons = () => {
-      if (!selectedMachine || !selectedMachine.mesh) {
-        machineActionUI.classList.add('is-hidden');
-        return;
-      }
+        const links = {
+          course: selectedMachine.props.link1 || selectedMachine.props.courseLink || null,
+          maintenance: selectedMachine.props.link2 || selectedMachine.props.maintenanceLink || null,
+          safety: selectedMachine.props.link3 || selectedMachine.props.safetyLink || null,
+        };
 
-      const bbox = new THREE.Box3().setFromObject(selectedMachine.mesh);
-      if (bbox.isEmpty()) {
-        machineActionUI.classList.add('is-hidden');
-        return;
-      }
+        return links[action] || null;
+      };
 
-      const worldPos = new THREE.Vector3(
-        (bbox.min.x + bbox.max.x) / 2,
-        bbox.max.y,
-        (bbox.min.z + bbox.max.z) / 2
-      );
+      const updateActionButtons = () => {
+        actionButtons.forEach(button => {
+          const action = button.getAttribute('data-action');
+          button.disabled = !getSelectedMachineLink(action);
+        });
+      };
 
-      worldPos.project(W3D.activeCamera || W3D.camera);
-      if (worldPos.z < -1 || worldPos.z > 1) {
-        machineActionUI.classList.add('is-hidden');
-        return;
-      }
-
-      const x = ((worldPos.x + 1) / 2) * window.innerWidth;
-      const y = ((-worldPos.y + 1) / 2) * window.innerHeight;
-      machineActionUI.style.left = `${x}px`;
-      machineActionUI.style.top = `${y - 8}px`;
-      machineActionUI.classList.remove('is-hidden');
-      updateActionButtons();
-    };
-
-    const deselectMachine = () => {
-      selectedMachine = null;
-      clearHighlight();
-      machineActionUI.classList.add('is-hidden');
-      updateActionButtons();
-    };
-
-    const selectMachine = objectEntry => {
-      selectedMachine = objectEntry;
-      applyHighlight(objectEntry.mesh);
-      updateActionIcons();
-      if (W3D.focusCameraOnObject) {
-        W3D.focusCameraOnObject(objectEntry);
-      }
-    };
-
-    const pickMachine = event => {
-      if (!canvas) return null;
-
-      const rect = canvas.getBoundingClientRect();
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      W3D.scene.updateMatrixWorld(true);
-      raycaster.setFromCamera(pointer, W3D.activeCamera || W3D.camera);
-
-      const rootMeshes = W3D.objects.filter(objectEntry => !objectEntry.static).map(objectEntry => objectEntry.mesh);
-      const hits = raycaster.intersectObjects(rootMeshes, true);
-      if (hits.length === 0) return null;
-
-      let node = hits[0].object;
-      while (node) {
-        const foundObject = W3D.objects.find(objectEntry => objectEntry.mesh === node && !objectEntry.static);
-        if (foundObject) return foundObject;
-        node = node.parent;
-      }
-
-      return null;
-    };
-
-    machineActionUI.addEventListener('click', event => {
-      const button = event.target.closest('.action-icon');
-      if (!button || button.disabled) return;
-
-      const action = button.getAttribute('data-action');
-      const url = getSelectedMachineLink(action);
-      if (url) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-    });
-
-    if (canvas) {
-      canvas.addEventListener('pointerdown', event => {
-        pointerDown = { x: event.clientX, y: event.clientY };
-      });
-
-      canvas.addEventListener('click', event => {
-        if (pointerDown) {
-          const deltaX = event.clientX - pointerDown.x;
-          const deltaY = event.clientY - pointerDown.y;
-          const moved = Math.hypot(deltaX, deltaY) > 6;
-          pointerDown = null;
-          if (moved) return;
-        }
-
-        const pickedMachine = pickMachine(event);
-        if (pickedMachine) {
-          selectMachine(pickedMachine);
+      const updateActionIcons = () => {
+        if (!selectedMachine || !selectedMachine.mesh) {
+          machineActionUI.classList.add('is-hidden');
           return;
         }
 
-        deselectMachine();
+        const bbox = new THREE.Box3().setFromObject(selectedMachine.mesh);
+        if (bbox.isEmpty()) {
+          machineActionUI.classList.add('is-hidden');
+          return;
+        }
+
+        const worldPos = new THREE.Vector3(
+          (bbox.min.x + bbox.max.x) / 2,
+          bbox.max.y,
+          (bbox.min.z + bbox.max.z) / 2
+        );
+
+        worldPos.project(W3D.activeCamera || W3D.camera);
+        if (worldPos.z < -1 || worldPos.z > 1) {
+          machineActionUI.classList.add('is-hidden');
+          return;
+        }
+
+        const x = ((worldPos.x + 1) / 2) * window.innerWidth;
+        const y = ((-worldPos.y + 1) / 2) * window.innerHeight;
+        machineActionUI.style.left = `${x}px`;
+        machineActionUI.style.top = `${y - 8}px`;
+        machineActionUI.classList.remove('is-hidden');
+        updateActionButtons();
+      };
+
+      const deselectMachine = () => {
+        selectedMachine = null;
+        clearHighlight();
+        machineActionUI.classList.add('is-hidden');
+        updateActionButtons();
+      };
+
+      const selectMachine = objectEntry => {
+        selectedMachine = objectEntry;
+        applyHighlight(objectEntry.mesh);
+        updateActionIcons();
+        if (W3D.focusCameraOnObject) {
+          W3D.focusCameraOnObject(objectEntry);
+        }
+      };
+
+      const pickMachine = event => {
+        if (!canvas) return null;
+
+        const rect = canvas.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        W3D.scene.updateMatrixWorld(true);
+        raycaster.setFromCamera(pointer, W3D.activeCamera || W3D.camera);
+
+        const rootMeshes = W3D.objects.filter(objectEntry => !objectEntry.static).map(objectEntry => objectEntry.mesh);
+        const hits = raycaster.intersectObjects(rootMeshes, true);
+        if (hits.length === 0) return null;
+
+        let node = hits[0].object;
+        while (node) {
+          const foundObject = W3D.objects.find(objectEntry => objectEntry.mesh === node && !objectEntry.static);
+          if (foundObject) return foundObject;
+          node = node.parent;
+        }
+
+        return null;
+      };
+
+      machineActionUI.addEventListener('click', event => {
+        const button = event.target.closest('.action-icon');
+        if (!button || button.disabled) return;
+
+        const action = button.getAttribute('data-action');
+        const url = getSelectedMachineLink(action);
+        if (url) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      });
+
+      if (canvas) {
+        canvas.addEventListener('pointerdown', event => {
+          pointerDown = { x: event.clientX, y: event.clientY };
+        });
+
+        canvas.addEventListener('click', event => {
+          if (pointerDown) {
+            const deltaX = event.clientX - pointerDown.x;
+            const deltaY = event.clientY - pointerDown.y;
+            const moved = Math.hypot(deltaX, deltaY) > 6;
+            pointerDown = null;
+            if (moved) return;
+          }
+
+          const pickedMachine = pickMachine(event);
+          if (pickedMachine) {
+            selectMachine(pickedMachine);
+            return;
+          }
+
+          deselectMachine();
+        });
+      }
+
+      if (W3D.orbitControls) {
+        W3D.orbitControls.addEventListener('change', updateActionIcons);
+      }
+
+      window.addEventListener('resize', updateActionIcons);
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          deselectMachine();
+        }
       });
     }
 
-    if (W3D.orbitControls) {
-      W3D.orbitControls.addEventListener('change', updateActionIcons);
-    }
+    // Load local 3D models only when the files are reachable on this deployment.
+    const isElectron = typeof window.electronAPI !== 'undefined';
+    const isDevMode = isElectron ? window.electronAPI.isDev : true;
 
-    window.addEventListener('resize', updateActionIcons);
-    document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
-        deselectMachine();
-      }
-    });
-  }
+    console.log('Model Loading Config:', { isElectron, isDevMode });
 
-  // Step 2: Load your default local models so the scene is not empty at start.
-  // Load local 3D models only when the files are reachable on this deployment.
-  
-  // Detect if running in Electron and whether it's dev or production
-  const isElectron = typeof window.electronAPI !== 'undefined';
-  const isDevMode = isElectron ? window.electronAPI.isDev : true; // Default to dev mode for web
-  
-  console.log('Model Loading Config:', { isElectron, isDevMode });
-  
-  const defaultModelPaths = ["models/plattegrond.glb", "models/pilaar.glb", "models/walls.glb"];
-  for (const modelPath of defaultModelPaths) {
-    try {
-      // In production Electron, convert relative paths to file:// URLs
-      // In dev mode (web or Electron), use relative paths
-      let finalPath = modelPath;
-      if (isElectron && !isDevMode && window.electronAPI.resourcesPath) {
-        finalPath = `file://${window.electronAPI.resourcesPath}/${modelPath}`;
-        console.log(`Production Electron: Using file:// path: ${finalPath}`);
-      } else {
-        console.log(`Dev/Web mode: Using relative path: ${finalPath}`);
-      }
-      
-      // For file:// URLs, we can't use fetch HEAD, so just attempt to load
-      if (isElectron && !isDevMode) {
-        W3D.Factory.loadLocalGLTF(finalPath);
-      } else {
-        // For web/dev, use the original HEAD check
-        const modelCheck = await fetch(modelPath, { method: "HEAD" });
-        if (modelCheck.ok || modelCheck.status === 405) {
-          W3D.Factory.loadLocalGLTF(modelPath);
+    const defaultModelPaths = ["models/plattegrond.glb", "models/pilaar.glb", "models/walls.glb"];
+    for (const modelPath of defaultModelPaths) {
+      try {
+        let finalPath = modelPath;
+        if (isElectron && !isDevMode && window.electronAPI.resourcesPath) {
+          finalPath = `file://${window.electronAPI.resourcesPath}/${modelPath}`;
+          console.log(`Production Electron: Using file:// path: ${finalPath}`);
+        } else {
+          console.log(`Dev/Web mode: Using relative path: ${finalPath}`);
         }
-      }
-    } catch (modelErr) {
-      console.warn(
-        `Default local model ${modelPath} is not available on this deployment.`,
-        modelErr,
-      );
-    }
-  }
 
-  // Step 3: Find key UI elements for auth-driven admin view behavior.
+        if (isElectron && !isDevMode) {
+          // Electron productie: laad direct via file:// URL.
+          W3D.Factory.loadLocalGLTF(finalPath)
+            .then(() => W3D.Preloader && W3D.Preloader.increment())
+            .catch(() => W3D.Preloader && W3D.Preloader.increment());
+        } else {
+          // Web/dev: controleer eerst of het bestand bereikbaar is via een HEAD-verzoek.
+          const modelCheck = await fetch(modelPath, { method: "HEAD" });
+          if (modelCheck.ok || modelCheck.status === 405) {
+            W3D.Factory.loadLocalGLTF(modelPath)
+              .then(() => W3D.Preloader && W3D.Preloader.increment())
+              .catch(() => W3D.Preloader && W3D.Preloader.increment());
+          } else {
+            // Bestand niet beschikbaar → toch increment zodat de teller klopt.
+            if (W3D.Preloader) W3D.Preloader.increment();
+          }
+        }
+      } catch (modelErr) {
+        // Model laden mislukt → increment zodat de preloader niet blijft hangen.
+        if (W3D.Preloader) W3D.Preloader.increment();
+        console.warn(
+          `Default local model ${modelPath} is not available on this deployment.`,
+          modelErr,
+        );
+      }
+    }
+  };
+  // ── End initScene ────────────────────────────────────────────────────────
+
+  // Step 4: Find key UI elements for auth-driven admin view behavior.
   const loginPanel = document.getElementById("login-panel");
   const adminPanel = document.getElementById("admin-panel");
   const hasAdminAuthPanels = Boolean(loginPanel && adminPanel);
@@ -317,12 +345,12 @@ W3D.init = async function () {
   );
   const hasDatabaseFeatures = Boolean(W3D.Database);
 
-  // Step 4: Set up model-library controls before init so status errors can be shown.
+  // Step 5: Set up model-library controls before init so status errors can be shown.
   if (W3D.Supabase && hasStorageControls) {
     W3D.Supabase.setupUI();
   }
 
-  // Step 5: Connect Supabase if this page needs auth, storage, or database reads/writes.
+  // Step 6: Connect Supabase if this page needs auth, storage, or database reads/writes.
   if (
     W3D.Supabase &&
     (hasAdminAuthPanels || hasStorageControls || hasDatabaseFeatures)
@@ -330,7 +358,7 @@ W3D.init = async function () {
     await W3D.Supabase.initializeFromConfig();
   }
 
-  // Step 6: Admin authentication workflow and panel switching.
+  // Step 7: Admin authentication workflow and panel switching.
   if (hasAdminAuthPanels && W3D.Auth && W3D.Supabase) {
     const emailInput = document.getElementById("auth-email");
     const passwordInput = document.getElementById("auth-password");
@@ -339,6 +367,7 @@ W3D.init = async function () {
     const logoutButton = document.getElementById("btn-auth-logout");
     const authError = document.getElementById("auth-error");
 
+    // showLoginPanel: show the login form immediately, no 3D scene or preloader.
     const showLoginPanel = () => {
       loginPanel.classList.remove("is-hidden");
       adminPanel.classList.add("is-hidden");
@@ -347,7 +376,12 @@ W3D.init = async function () {
       }
     };
 
+    // showAdminPanel: initialise the 3D scene (only first time), then load machines.
+    // The preloader is managed inside initScene() and unlocked after machine loading.
     const showAdminPanel = async () => {
+      // initScene() is guarded by _sceneReady — runs at most once.
+      await initScene();
+
       loginPanel.classList.add("is-hidden");
       adminPanel.classList.remove("is-hidden");
       if (W3D.Supabase && hasStorageControls) {
@@ -358,6 +392,8 @@ W3D.init = async function () {
         W3D.Database.setControlsDisabled(false);
         await W3D.Database.loadSavedMachinesIntoScene();
       }
+      // All machines loaded → remove the lock so the preloader can close.
+      if (W3D.Preloader) W3D.Preloader.unlock();
     };
 
     if (loginButton) {
@@ -649,10 +685,12 @@ W3D.init = async function () {
             ? W3D.Supabase.lastInitError
             : 'Deze omgeving is nog niet volledig ingesteld.';
       }
+      // Supabase not available → show login immediately, close preloader.
       showLoginPanel();
+      if (W3D.Preloader) W3D.Preloader.finish();
     } else {
-      // On SIGNED_IN: hide #login-panel, show #admin-panel.
-      // On SIGNED_OUT: hide #admin-panel, show #login-panel.
+      // On SIGNED_IN: init scene (if not yet done) and show admin panel.
+      // On SIGNED_OUT: show login panel.
       if (typeof onAuthStateChange === "function") {
         onAuthStateChange.call(W3D.Supabase, (event) => {
           if (event === "SIGNED_IN") {
@@ -673,17 +711,31 @@ W3D.init = async function () {
         if (authError)
           authError.textContent =
             error.message || 'We konden niet controleren of je bent ingelogd.';
+        // Auth error → show login, close preloader.
         showLoginPanel();
+        if (W3D.Preloader) W3D.Preloader.finish();
       } else if (data && data.user) {
+        // Already logged in → launch scene and admin panel.
         await showAdminPanel();
       } else {
+        // Not logged in → show login form immediately, no scene or preloader.
         showLoginPanel();
+        if (W3D.Preloader) W3D.Preloader.finish();
       }
     }
-  } else if (W3D.Database && W3D.Supabase && W3D.Supabase.client) {
-    // Viewer mode has no auth panels, so we restore saved machines immediately.
-    W3D.Database.setControlsDisabled(true);
-    await W3D.Database.loadSavedMachinesIntoScene();
+  } else {
+    // Viewer mode: no auth panels, launch scene and restore saved machines immediately.
+    await initScene();
+
+    if (W3D.Database && W3D.Supabase && W3D.Supabase.client) {
+      W3D.Database.setControlsDisabled(true);
+      await W3D.Database.loadSavedMachinesIntoScene();
+      // All machines loaded → remove the lock so the preloader can close.
+      if (W3D.Preloader) W3D.Preloader.unlock();
+    } else {
+      // No database available → close preloader immediately.
+      if (W3D.Preloader) W3D.Preloader.finish();
+    }
   }
 };
 

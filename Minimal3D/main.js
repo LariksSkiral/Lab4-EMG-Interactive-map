@@ -1,13 +1,27 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
+// Set the app name before 'ready' so macOS menu bar shows the correct title
+app.name = 'Mechanische Werkplaats';
+
 let mainWindow;
 
 function createWindow() {
+  // When packaged, icon.png is placed outside app.asar in Resources/
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, 'icon.png');
+
+  // Set dock icon on macOS
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(iconPath);
+  }
+
   // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

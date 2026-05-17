@@ -17,7 +17,7 @@ W3D.initRenderer = function() {
   W3D.renderer.shadowMap.enabled = true;
   W3D.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   // Set background color to white
-  W3D.renderer.setClearColor(0xffffff);
+  W3D.renderer.setClearColor(0xfff3ed);
 
   // Create the 3D scene (container for all objects)
   W3D.scene = new THREE.Scene();
