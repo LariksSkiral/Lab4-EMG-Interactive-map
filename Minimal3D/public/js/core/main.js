@@ -151,15 +151,16 @@ W3D.init = async function () {
       };
 
       const getSelectedMachineLink = action => {
-        if (!selectedMachine || !selectedMachine.props) return null;
+        const fallback = 'https://www.google.com';
+        if (!selectedMachine || !selectedMachine.props) return fallback;
 
         const links = {
-          course: selectedMachine.props.link1 || selectedMachine.props.courseLink || null,
-          maintenance: selectedMachine.props.link2 || selectedMachine.props.maintenanceLink || null,
-          safety: selectedMachine.props.link3 || selectedMachine.props.safetyLink || null,
+          course: selectedMachine.props.link1 || selectedMachine.props.courseLink || fallback,
+          maintenance: selectedMachine.props.link2 || selectedMachine.props.maintenanceLink || fallback,
+          safety: selectedMachine.props.link3 || selectedMachine.props.safetyLink || fallback,
         };
 
-        return links[action] || null;
+        return links[action] || fallback;
       };
 
       const updateActionButtons = () => {

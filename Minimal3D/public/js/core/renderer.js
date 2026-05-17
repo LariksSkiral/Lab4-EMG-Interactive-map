@@ -5,7 +5,7 @@ W3D.initRenderer = function() {
   const canvas = document.getElementById('three-canvas');
 
   // Create the WebGL renderer (draws 3D graphics)
-  W3D.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  W3D.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   // Make it look sharp on high-DPI screens
   W3D.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   // Render final colors in sRGB so materials and textures look correct on screen.
@@ -16,8 +16,8 @@ W3D.initRenderer = function() {
   // Enable shadows for realistic lighting
   W3D.renderer.shadowMap.enabled = true;
   W3D.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  // Set background color to white
-  W3D.renderer.setClearColor(0xfff3ed);
+  // Transparent — background gradient is rendered via CSS on .main-stage
+  W3D.renderer.setClearColor(0x000000, 0);
 
   // Create the 3D scene (container for all objects)
   W3D.scene = new THREE.Scene();
