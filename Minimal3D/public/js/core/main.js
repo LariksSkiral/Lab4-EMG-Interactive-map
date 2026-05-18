@@ -212,6 +212,10 @@ W3D.init = async function () {
       const selectMachine = objectEntry => {
         selectedMachine = objectEntry;
         applyHighlight(objectEntry.mesh);
+
+        const nameEl = machineActionUI.querySelector('.machine-card-name');
+        if (nameEl) nameEl.textContent = objectEntry.name || 'Machine';
+
         updateActionIcons();
         if (W3D.focusCameraOnObject) {
           W3D.focusCameraOnObject(objectEntry);

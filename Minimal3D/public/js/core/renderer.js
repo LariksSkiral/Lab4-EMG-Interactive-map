@@ -26,8 +26,8 @@ W3D.initRenderer = function() {
 
   // ── Perspective camera (3D view) ─────────────────────────────────────────
   W3D.camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 800);
-  W3D.camera.position.set(12, 10, 16);
-  W3D.camera.lookAt(0, 0, 0);
+  W3D.camera.position.set(17.46, 46.23, 19.68);
+  W3D.camera.lookAt(5.42, 1.21, -0.55);
 
   // ── Orthographic camera (top / 2D view) ──────────────────────────────────
   const aspect = window.innerWidth / window.innerHeight;
@@ -103,6 +103,15 @@ W3D.initRenderer = function() {
   W3D.orbitControls.addEventListener('start', function() {
   if (W3D.cameraFocus) W3D.cameraFocus.active = false;
 });
+
+  W3D.orbitControls.addEventListener('end', function() {
+    const p = W3D.activeCamera.position;
+    const t = W3D.orbitControls.target;
+    console.log(
+      `Camera position: (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})` +
+      `  |  Target: (${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)})`
+    );
+  });
 
   W3D.cameraFocus = {
     active: false,
