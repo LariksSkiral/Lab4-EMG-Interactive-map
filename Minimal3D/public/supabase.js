@@ -720,7 +720,8 @@ W3D.Supabase = {
 
 		// Use existing Three.js factory method to load model from URL.
 		try {
-			await W3D.Factory.loadRemoteGLTF(modelUrl, fileName, { storagePath: filePath });
+			const obj = await W3D.Factory.loadRemoteGLTF(modelUrl, fileName, { storagePath: filePath });
+			if (obj && W3D.focusCameraOnObject) W3D.focusCameraOnObject(obj);
 			this.setStatus(`${fileName} staat nu in de ruimte. Zet het op de juiste plek en klik daarna op Opslaan.`);
 		} catch (loadError) {
 			console.error('Supabase model load error:', loadError);
