@@ -102,7 +102,7 @@ W3D.init = async function () {
     // The lock prevents the preloader from closing until database models are also done.
     if (W3D.Preloader) {
       W3D.Preloader.reset();
-      W3D.Preloader.setTotal(3);
+      W3D.Preloader.setTotal(2);
       W3D.Preloader.lock();
       W3D.Preloader.setStatus('Werkplaats laden...');
     }
@@ -299,7 +299,7 @@ W3D.init = async function () {
 
     console.log('Model Loading Config:', { isElectron, isDevMode });
 
-    const defaultModelPaths = ["models/plattegrond.glb", "models/pilaar.glb", "models/walls.glb"];
+    const defaultModelPaths = ["models/plattegrond.glb", "models/walls.glb"];
     for (const modelPath of defaultModelPaths) {
       try {
         let finalPath = modelPath;
