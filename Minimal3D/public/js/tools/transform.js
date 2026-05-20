@@ -40,7 +40,7 @@ W3D.Transform = {
     const tc = new THREE.TransformControls(W3D.camera, W3D.renderer.domElement);
     tc.setSpace('world');
     tc.setSize(0.9);
-    tc.translationSnap = 1;           // move in steps of 1 unit
+    tc.translationSnap = null;         // free movement by default
     tc.rotationSnap = Math.PI / 180;  // rotate in steps of 1 degree by default
     W3D.scene.add(tc);
     this.controls = tc;
@@ -100,14 +100,16 @@ W3D.Transform = {
     // Keyboard shortcuts
     window.addEventListener('keydown', e => this._onKey(e));
 
-    // Shift held while rotating → snap to 45° instead of 1°
+    // Shift held → snap movement to 1 unit, snap rotation to 45°
     window.addEventListener('keydown', e => {
       if (e.key === 'Shift' && this.controls) {
+        this.controls.translationSnap = 1;
         this.controls.rotationSnap = Math.PI / 4;
       }
     });
     window.addEventListener('keyup', e => {
       if (e.key === 'Shift' && this.controls) {
+        this.controls.translationSnap = null;
         this.controls.rotationSnap = Math.PI / 180;
       }
     });
