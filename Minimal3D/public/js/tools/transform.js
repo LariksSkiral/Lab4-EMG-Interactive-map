@@ -40,6 +40,8 @@ W3D.Transform = {
     const tc = new THREE.TransformControls(W3D.camera, W3D.renderer.domElement);
     tc.setSpace('world');
     tc.setSize(0.9);
+    tc.translationSnap = 1;           // move in steps of 1 unit
+    tc.rotationSnap = Math.PI / 180;  // rotate in steps of 1 degree by default
     W3D.scene.add(tc);
     this.controls = tc;
 
@@ -97,6 +99,18 @@ W3D.Transform = {
 
     // Keyboard shortcuts
     window.addEventListener('keydown', e => this._onKey(e));
+
+    // Shift held while rotating → snap to 45° instead of 1°
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Shift' && this.controls) {
+        this.controls.rotationSnap = Math.PI / 4;
+      }
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key === 'Shift' && this.controls) {
+        this.controls.rotationSnap = Math.PI / 180;
+      }
+    });
 
     // Wire up taskbar buttons
     this._bindButtons();
@@ -263,8 +277,8 @@ W3D.Transform = {
     const posEl  = document.getElementById('tf-obj-pos');
     const rotEl  = document.getElementById('tf-obj-rot');
     if (nameEl) nameEl.textContent = this.selected.name;
-    if (posEl)  posEl.textContent  = `X ${m.position.x.toFixed(2)}  Z ${m.position.z.toFixed(2)}`;
-    if (rotEl)  rotEl.textContent  = `${THREE.MathUtils.radToDeg(m.rotation.y).toFixed(1)}°`;
+    if (posEl)  posEl.textContent  = `X ${Math.round(m.position.x)}  Z ${Math.round(m.position.z)}`;
+    if (rotEl)  rotEl.textContent  = `${Math.round(THREE.MathUtils.radToDeg(m.rotation.y))}°`;
   },
 
   /* ── Pointer handling (raycasting) ─────────────────────────────────────── */
