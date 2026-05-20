@@ -498,6 +498,7 @@ W3D.init = async function () {
       if (saveMachineBtn) saveMachineBtn.textContent = "Machine opslaan";
 
       if (machineNameInput) machineNameInput.value = "";
+      if (categorySelect) categorySelect.value = "";
       if (link1Input) link1Input.value = "";
       if (link2Input) link2Input.value = "";
       if (link3Input) link3Input.value = "";
@@ -554,6 +555,7 @@ W3D.init = async function () {
     const saveMachineBtn = document.getElementById("save-machine-btn");
     const machineStatus = document.getElementById("machine-status");
     const machineNameInput = document.getElementById("machine-name");
+    const categorySelect = document.getElementById("machine-category");
     const link1Input = document.getElementById("link1");
     const link2Input = document.getElementById("link2");
     const link3Input = document.getElementById("link3");
@@ -649,10 +651,21 @@ W3D.init = async function () {
     if (saveMachineBtn) {
       saveMachineBtn.addEventListener("click", async () => {
         const machineName = machineNameInput ? machineNameInput.value.trim() : "";
+        const rawCategoryValue = categorySelect ? categorySelect.value : '';
+        const categoryId = rawCategoryValue ? parseInt(rawCategoryValue, 10) : null;
         const link1 = link1Input ? link1Input.value.trim() : "";
         const link2 = link2Input ? link2Input.value.trim() : "";
         const link3 = link3Input ? link3Input.value.trim() : "";
         const isEditing = _editingMachineTypeId !== null;
+
+        console.log('[main] Opslaan gestart', {
+          machineName,
+          rawCategoryValue,
+          categoryId,
+          categoryIdType: typeof categoryId,
+          isEditing,
+          editingId: _editingMachineTypeId,
+        });
 
         if (!machineName || !W3D.Supabase || !W3D.Database) return;
         if (!isEditing && !selectedModelFile) return;
@@ -672,6 +685,7 @@ W3D.init = async function () {
             console.log('[main] Bewerken opslaan — meegegeven waarden:', {
               id: _editingMachineTypeId,
               name: machineName,
+              categoryId,
               oldStoragePath: _editingStoragePath,
               newFile: selectedModelFile ? selectedModelFile.name : null,
               links: [link1, link2, link3],
@@ -682,12 +696,20 @@ W3D.init = async function () {
               oldStoragePath: _editingStoragePath,
               newFile: selectedModelFile,
               links: [link1, link2, link3],
+              categoryId,
             });
           } else {
+            console.log('[main] Nieuw aanmaken — meegegeven waarden:', {
+              name: machineName,
+              categoryId,
+              file: selectedModelFile ? selectedModelFile.name : null,
+              links: [link1, link2, link3],
+            });
             await W3D.Database.createMachineTypeWithFile({
               name: machineName,
               file: selectedModelFile,
               links: [link1, link2, link3],
+              categoryId,
             });
           }
 
@@ -732,6 +754,10 @@ W3D.init = async function () {
       if (saveMachineBtn) saveMachineBtn.textContent = "Wijzigingen opslaan";
 
       if (machineNameInput) machineNameInput.value = machineTypeData.name || "";
+      if (categorySelect) {
+        categorySelect.value = machineTypeData.categoryId ? String(machineTypeData.categoryId) : "";
+        console.log('[main] openOverlayForEdit: category_id ingesteld op', machineTypeData.categoryId || 'geen');
+      }
       if (link1Input) link1Input.value = machineTypeData.link1 || "";
       if (link2Input) link2Input.value = machineTypeData.link2 || "";
       if (link3Input) link3Input.value = machineTypeData.link3 || "";
@@ -784,6 +810,7 @@ W3D.init = async function () {
         id: machineTypeId,
         name: sel.name || "",
         storagePath: props.storagePath || "",
+        categoryId: props.categoryId || null,
         link1: props.link1 || props.courseLink || "",
         link2: props.link2 || props.maintenanceLink || "",
         link3: props.link3 || props.safetyLink || "",
@@ -794,7 +821,7 @@ W3D.init = async function () {
         try {
           const { data } = await W3D.Supabase.client
             .from("machine_types")
-            .select("id, name, model, machine_type_links(*)")
+            .select("id, name, model, category_id, machine_type_links(*)")
             .eq("id", machineTypeId)
             .maybeSingle();
 
@@ -806,9 +833,11 @@ W3D.init = async function () {
             editData.id = data.id;
             editData.name = data.name || editData.name;
             editData.storagePath = data.model || editData.storagePath;
+            editData.categoryId = data.category_id || null;
             editData.link1 = linkRow ? (linkRow.course_url || "") : editData.link1;
             editData.link2 = linkRow ? (linkRow.maintenance_url || "") : editData.link2;
             editData.link3 = linkRow ? (linkRow.safety_url || "") : editData.link3;
+            console.log('[main] onEditSelectedMachine: verse data opgehaald, category_id =', editData.categoryId);
           }
         } catch (err) {
           console.warn("Supabase fetch mislukt, gebruik scene-props als fallback:", err);

@@ -4,6 +4,7 @@ node_modules/
 # Build files
 dist/
 build/
+dist-electron-build/
 
 # Logs
 npm-debug.log*

@@ -96,8 +96,6 @@
             <span class="drawer-title">Modelbibliotheek</span>
           </div>
           <div class="drawer-header-actions">
-            <button id="btn-open-machine-form" class="drawer-icon-btn drawer-create-btn" type="button"
-              title="Nieuwe machine toevoegen"><i data-lucide="plus"></i></button>
             <button id="drawer-close" class="drawer-close" type="button" title="Sluit menu"><i data-lucide="x"></i></button>
           </div>
         </div>
@@ -105,7 +103,11 @@
         <div class="drawer-section">
           <div class="drawer-library-header">
             <span class="drawer-label">Beschikbare modellen</span>
-            <button id="sb-refresh-btn" class="drawer-icon-btn" type="button" title="Ververs lijst"><i data-lucide="refresh-cw"></i></button>
+            <div class="drawer-library-actions">
+              <button id="btn-open-machine-form" class="drawer-icon-btn drawer-create-btn" type="button"
+                title="Nieuwe machine toevoegen"><i data-lucide="plus"></i></button>
+              <button id="sb-refresh-btn" class="drawer-icon-btn" type="button" title="Ververs lijst"><i data-lucide="refresh-cw"></i></button>
+            </div>
           </div>
 
           <div id="sb-file-list" class="sb-file-list">
@@ -133,6 +135,20 @@
             <div class="overlay-section">
               <label class="overlay-label" for="machine-name">Naam van de machine</label>
               <input id="machine-name" class="overlay-input" type="text" placeholder="Voer naam in...">
+            </div>
+
+            <div class="overlay-section">
+              <label class="overlay-label" for="machine-category">Zone / Categorie</label>
+              <select id="machine-category" class="overlay-input">
+                <option value="">-- Selecteer een zone --</option>
+                <option value="1">Verspanningszone</option>
+                <option value="2">(De)montagezone</option>
+                <option value="3">Lasplaats</option>
+                <option value="4">CNC zone</option>
+                <option value="5">Magazijn</option>
+                <option value="6">Reinigingzone</option>
+                <option value="7">Overige</option>
+              </select>
             </div>
 
             <div class="overlay-section">

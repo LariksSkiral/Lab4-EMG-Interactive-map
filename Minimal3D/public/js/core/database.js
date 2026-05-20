@@ -43,6 +43,8 @@ W3D.Database = {
     machineTypeName: 'name',
     machineTypeModelPath: 'model',
 
+    machineTypeCategoryId: 'category_id',
+
     machineTypeLinkId: 'id',
     machineTypeLinkOne: 'course_url',
     machineTypeLinkTwo: 'maintenance_url',
@@ -466,7 +468,7 @@ W3D.Database = {
 
   // Create a new machine type entry for a freshly uploaded model.
   // This writes the machine type first, then stores the optional external links in the child table.
-  async createMachineTypeWithLinks({ name, storagePath, links = [] }) {
+  async createMachineTypeWithLinks({ name, storagePath, links = [], categoryId = null }) {
     const client = await this._ensureClient();
     const trimmedName = String(name || '').trim();
     const normalizedStoragePath = this._normalizeStoragePath(storagePath);
@@ -488,6 +490,13 @@ W3D.Database = {
       [this.columns.machineTypeName]: trimmedName,
       [this.columns.machineTypeModelPath]: normalizedStoragePath,
     };
+
+    if (categoryId !== null) {
+      machineTypePayload[this.columns.machineTypeCategoryId] = categoryId;
+      console.log('[DB] createMachineTypeWithLinks: category_id meegegeven:', categoryId);
+    } else {
+      console.log('[DB] createMachineTypeWithLinks: geen category_id meegegeven');
+    }
 
     const { data: machineTypeRow, error: machineTypeError } = await client
       .from(this.tables.machineTypes)
@@ -589,7 +598,7 @@ W3D.Database = {
   // If newFile is provided, the new file is uploaded first, then the DB row is updated,
   // and finally the old file is removed from storage.
   // If any step fails after a new file was uploaded, that file is cleaned up (rollback).
-  async updateMachineTypeWithLinks({ id, name, oldStoragePath, newFile = null, links = [] }) {
+  async updateMachineTypeWithLinks({ id, name, oldStoragePath, newFile = null, links = [], categoryId = null }) {
     const client = await this._ensureClient();
     const trimmedName = String(name || '').trim();
     const cleanedLinks = [0, 1, 2].map(index => {
@@ -603,6 +612,7 @@ W3D.Database = {
       oldStoragePath,
       newFile: newFile ? newFile.name : null,
       links: cleanedLinks,
+      categoryId,
     });
 
     if (!trimmedName) {
@@ -653,6 +663,12 @@ W3D.Database = {
       const machineTypeUpdate = { [this.columns.machineTypeName]: trimmedName };
       if (newStoragePath) {
         machineTypeUpdate[this.columns.machineTypeModelPath] = newStoragePath;
+      }
+      if (categoryId !== null) {
+        machineTypeUpdate[this.columns.machineTypeCategoryId] = categoryId;
+        console.log('[DB] Stap 2: category_id wordt bijgewerkt naar:', categoryId);
+      } else {
+        console.log('[DB] Stap 2: geen category_id meegegeven, category blijft ongewijzigd');
       }
 
       console.log(`[DB] Stap 2: UPDATE machine_types SET`, machineTypeUpdate, `WHERE id =`, id, '(type:', typeof id, ')');
@@ -751,7 +767,7 @@ W3D.Database = {
 
   // Upload the model file and create the related database rows as one save flow.
   // If any later step fails, we clean up the uploaded file so storage does not drift away from the database.
-  async createMachineTypeWithFile({ name, file, links = [] }) {
+  async createMachineTypeWithFile({ name, file, links = [], categoryId = null }) {
     const client = await this._ensureClient();
     const trimmedName = String(name || '').trim();
     const modelFile = file || null;
@@ -799,6 +815,7 @@ W3D.Database = {
         name: trimmedName,
         storagePath: uploadedStoragePath,
         links,
+        categoryId,
       });
 
       return {
@@ -1015,6 +1032,7 @@ W3D.Database = {
                 storagePath: modelCandidates.normalizedPath || this._normalizeStoragePath(modelReference),
                 machineId: machineRow[this.columns.machineId] || null,
                 machineTypeId: machineTypeRow[this.columns.machineTypeId] || null,
+                categoryId: machineTypeRow[this.columns.machineTypeCategoryId] || null,
                 machineTypeLinkId: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkId] || null : null,
                 link1: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkOne] || null : null,
                 link2: machineTypeLinkRow ? machineTypeLinkRow[this.columns.machineTypeLinkTwo] || null : null,
