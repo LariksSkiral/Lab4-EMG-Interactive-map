@@ -532,7 +532,64 @@ W3D.Supabase = {
 				div.className = 'sb-file-item';
 				div.dataset.filePath = filePath;
 				div.innerHTML = `<span class="sb-file-item-icon">◈</span>` +
-					`<span class="sb-file-item-name">${displayName}</span>`;
+					`<span class="sb-file-item-name">${displayName}</span>` +
+					`<button class="sb-file-edit-btn" type="button" title="Bewerken" tabindex="0">` +
+					`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>` +
+					`</button>`;
+
+				const editBtn = div.querySelector('.sb-file-edit-btn');
+				if (editBtn) {
+					editBtn.addEventListener('click', async (e) => {
+						e.stopPropagation();
+
+						// Start with a sensible default so the overlay always opens.
+						const editData = {
+							id: null,
+							name: displayName,
+							storagePath: filePath,
+							link1: '',
+							link2: '',
+							link3: '',
+						};
+
+						if (this.client) {
+							try {
+								// Try exact match first; some rows store normalized (no-folder) path.
+								const normalizedPath = this._normalizeStoragePath(filePath);
+								let { data } = await this.client
+									.from('machine_types')
+									.select('id, name, model, machine_type_links(*)')
+									.eq('model', filePath)
+									.maybeSingle();
+
+								if (!data && normalizedPath && normalizedPath !== filePath) {
+									({ data } = await this.client
+										.from('machine_types')
+										.select('id, name, model, machine_type_links(*)')
+										.eq('model', normalizedPath)
+										.maybeSingle());
+								}
+
+								if (data) {
+									const linkRow = Array.isArray(data.machine_type_links)
+										? data.machine_type_links[0]
+										: data.machine_type_links || null;
+									editData.id = data.id;
+									editData.name = data.name || displayName;
+									editData.link1 = linkRow ? (linkRow.course_url || '') : '';
+									editData.link2 = linkRow ? (linkRow.maintenance_url || '') : '';
+									editData.link3 = linkRow ? (linkRow.safety_url || '') : '';
+								}
+							} catch (fetchErr) {
+								console.warn('Machine type gegevens konden niet worden opgehaald:', fetchErr);
+							}
+						}
+
+						if (typeof W3D.openOverlayForEdit === 'function') {
+							W3D.openOverlayForEdit(editData);
+						}
+					});
+				}
 
 				div.addEventListener('click', () => {
 					// Deselect all other items first.

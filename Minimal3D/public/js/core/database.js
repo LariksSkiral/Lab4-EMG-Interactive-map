@@ -527,6 +527,170 @@ W3D.Database = {
     };
   },
 
+  // Update an existing machine type's name, links, and optionally replace its 3D model file.
+  // If newFile is provided, the new file is uploaded first, then the DB row is updated,
+  // and finally the old file is removed from storage.
+  // If any step fails after a new file was uploaded, that file is cleaned up (rollback).
+  async updateMachineTypeWithLinks({ id, name, oldStoragePath, newFile = null, links = [] }) {
+    const client = await this._ensureClient();
+    const trimmedName = String(name || '').trim();
+    const cleanedLinks = [0, 1, 2].map(index => {
+      const value = Array.isArray(links) ? links[index] : '';
+      return String(value || '').trim() || null;
+    });
+
+    console.log('[DB] updateMachineTypeWithLinks gestart', {
+      id,
+      name: trimmedName,
+      oldStoragePath,
+      newFile: newFile ? newFile.name : null,
+      links: cleanedLinks,
+    });
+
+    if (!trimmedName) {
+      throw new Error('Vul een naam voor de machine in.');
+    }
+
+    if (!id) {
+      console.error('[DB] Fout: geen machine_types id meegegeven. Controleer of _editingMachineTypeId correct wordt gezet bij het openen van het bewerkvenster.');
+      throw new Error('Geen machine-id opgegeven voor het bijwerken.');
+    }
+
+    let newStoragePath = null;
+    let hasUploadedNewFile = false;
+
+    try {
+      // ── Stap 1: upload nieuw GLB als dat gekozen is ────────────────────────
+      if (newFile) {
+        if (!/\.(glb|gltf)$/i.test(newFile.name || '')) {
+          throw new Error('Gebruik een .glb- of .gltf-bestand.');
+        }
+
+        if (!W3D.Supabase || !W3D.Supabase.config || !W3D.Supabase.config.bucket) {
+          throw new Error('De opslag is op dit moment niet beschikbaar.');
+        }
+
+        newStoragePath = W3D.Supabase._buildStoragePath(newFile.name);
+        console.log('[DB] Stap 1: nieuw model uploaden naar storage pad:', newStoragePath);
+
+        const { error: uploadError } = await client.storage
+          .from(W3D.Supabase.config.bucket)
+          .upload(newStoragePath, newFile, {
+            upsert: false,
+            contentType: newFile.type || 'model/gltf-binary',
+          });
+
+        if (uploadError) {
+          console.error('[DB] Upload mislukt:', uploadError);
+          throw new Error('Het modelbestand kon niet worden geüpload. Probeer het opnieuw.');
+        }
+
+        hasUploadedNewFile = true;
+        console.log('[DB] Stap 1 OK: model geüpload naar', newStoragePath);
+      } else {
+        console.log('[DB] Stap 1 overgeslagen: geen nieuw modelbestand gekozen');
+      }
+
+      // ── Stap 2: update naam (en model-pad) in machine_types ───────────────
+      const machineTypeUpdate = { [this.columns.machineTypeName]: trimmedName };
+      if (newStoragePath) {
+        machineTypeUpdate[this.columns.machineTypeModelPath] = newStoragePath;
+      }
+
+      console.log(`[DB] Stap 2: UPDATE machine_types SET`, machineTypeUpdate, `WHERE id =`, id, '(type:', typeof id, ')');
+
+      const { data: updatedRows, error: updateError } = await client
+        .from(this.tables.machineTypes)
+        .update(machineTypeUpdate)
+        .eq(this.columns.machineTypeId, id)
+        .select();
+
+      if (updateError) {
+        console.error('[DB] machine_types update mislukt:', updateError);
+        throw new Error('De machine kon niet worden bijgewerkt.');
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        console.error('[DB] machine_types update: query geslaagd maar 0 rijen gewijzigd. Mogelijke oorzaken: RLS policy staat UPDATE niet toe, of id komt niet overeen. id =', id, 'type:', typeof id);
+        throw new Error('De naam van de machine kon niet worden bijgewerkt. Controleer of je de juiste rechten hebt (RLS policy).');
+      }
+
+      console.log('[DB] Stap 2 OK: machine_types bijgewerkt', updatedRows[0]);
+
+      // ── Stap 3: update links in machine_type_links WHERE machine_type_id = id ─
+      const linkFields = {
+        [this.columns.machineTypeLinkOne]: cleanedLinks[0],
+        [this.columns.machineTypeLinkTwo]: cleanedLinks[1],
+        [this.columns.machineTypeLinkThree]: cleanedLinks[2],
+      };
+
+      console.log(`[DB] Stap 3: UPDATE machine_type_links SET`, linkFields, `WHERE machine_type_id =`, id);
+
+      const { data: updatedLinks, error: updateLinkError } = await client
+        .from(this.tables.machineTypeLinks)
+        .update(linkFields)
+        .eq(this.columns.machineTypeLinkMachineTypeForeignKey, id)
+        .select();
+
+      if (updateLinkError) {
+        console.error('[DB] machine_type_links update mislukt:', updateLinkError);
+        throw new Error('De links van de machine konden niet worden bijgewerkt.');
+      }
+
+      if (!updatedLinks || updatedLinks.length === 0) {
+        console.warn('[DB] Stap 3: geen bestaande links-rij gevonden, nieuwe rij aanmaken');
+        const { error: insertLinkError } = await client
+          .from(this.tables.machineTypeLinks)
+          .insert({ ...linkFields, [this.columns.machineTypeLinkMachineTypeForeignKey]: id });
+
+        if (insertLinkError) {
+          console.error('[DB] machine_type_links insert mislukt:', insertLinkError);
+          throw new Error('De links van de machine konden niet worden opgeslagen.');
+        }
+        console.log('[DB] Stap 3 OK: nieuwe links-rij aangemaakt');
+      } else {
+        console.log('[DB] Stap 3 OK: links bijgewerkt', updatedLinks[0]);
+      }
+
+      // ── Stap 5: verwijder oud bestand uit storage ──────────────────────────
+      if (newStoragePath && oldStoragePath) {
+        const normalizedOld = this._normalizeStoragePath(oldStoragePath);
+        console.log('[DB] Stap 5: oud model verwijderen', {
+          oldStoragePath,
+          normalizedOld,
+          bucket: W3D.Supabase.config.bucket,
+        });
+
+        if (!normalizedOld) {
+          console.warn('[DB] Stap 5: pad is leeg na normalisatie, verwijderen overgeslagen. Origineel pad:', oldStoragePath);
+        } else {
+          const { error: removeError } = await client.storage
+            .from(W3D.Supabase.config.bucket)
+            .remove([normalizedOld]);
+
+          if (removeError) {
+            console.error('[DB] Stap 5 MISLUKT: oud modelbestand kon niet worden verwijderd. Pad:', normalizedOld, 'Fout:', removeError);
+          } else {
+            console.log('[DB] Stap 5 OK: oud model verwijderd:', normalizedOld);
+          }
+        }
+      } else {
+        console.log('[DB] Stap 5 overgeslagen', { newStoragePath, oldStoragePath });
+      }
+
+      console.log('[DB] updateMachineTypeWithLinks volledig geslaagd voor id', id);
+    } catch (error) {
+      if (hasUploadedNewFile && newStoragePath) {
+        console.warn('[DB] Fout opgetreden na upload — nieuw bestand wordt opgeruimd:', newStoragePath);
+        await client.storage
+          .from(W3D.Supabase.config.bucket)
+          .remove([newStoragePath])
+          .catch(cleanupErr => console.warn('[DB] Rollback upload mislukt:', cleanupErr));
+      }
+      throw error;
+    }
+  },
+
   // Upload the model file and create the related database rows as one save flow.
   // If any later step fails, we clean up the uploaded file so storage does not drift away from the database.
   async createMachineTypeWithFile({ name, file, links = [] }) {

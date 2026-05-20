@@ -606,6 +606,14 @@ html, body {
 .sb-file-item-icon { font-size: 14px; flex-shrink: 0; color: var(--text-2); }
 .sb-file-item.is-selected .sb-file-item-icon { color: var(--accent); }
 .sb-file-item-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-file-edit-btn {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-2); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.sb-file-edit-btn:hover { background: var(--accent-light); color: var(--accent); }
+#edit-current-model { margin-bottom: var(--sp-1); }
 
 .drawer-status {
   margin: 0 var(--sp-2) var(--sp-2);

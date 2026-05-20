@@ -489,9 +489,34 @@ W3D.init = async function () {
       if (machineOverlay) machineOverlay.classList.add("is-open");
     };
 
+    const resetOverlayToCreateMode = () => {
+      _editingMachineTypeId = null;
+      _editingStoragePath = null;
+
+      const overlayTitle = machineOverlay && machineOverlay.querySelector(".overlay-title");
+      if (overlayTitle) overlayTitle.textContent = "Nieuwe machine toevoegen";
+      if (saveMachineBtn) saveMachineBtn.textContent = "Machine opslaan";
+
+      if (machineNameInput) machineNameInput.value = "";
+      if (link1Input) link1Input.value = "";
+      if (link2Input) link2Input.value = "";
+      if (link3Input) link3Input.value = "";
+      clearModelFile();
+
+      if (machineStatus) {
+        machineStatus.textContent = "";
+        machineStatus.classList.remove("is-ok", "is-error");
+      }
+
+      const editCurrentFile = document.getElementById("edit-current-model");
+      if (editCurrentFile) editCurrentFile.remove();
+      if (modelDropZone) modelDropZone.style.display = "";
+    };
+
     const closeOverlay = () => {
       if (machineOverlay) machineOverlay.classList.remove("is-open");
       if (uploaderDrawer) uploaderDrawer.classList.remove("is-expanded");
+      resetOverlayToCreateMode();
     };
 
     if (openDrawerBtn) {
@@ -534,6 +559,8 @@ W3D.init = async function () {
     const link3Input = document.getElementById("link3");
 
     let selectedModelFile = null;
+    let _editingMachineTypeId = null;
+    let _editingStoragePath = null;
 
     const formatFileSize = (bytes) => {
       if (bytes === 0) return "0 B";
@@ -569,7 +596,8 @@ W3D.init = async function () {
       const machineName = machineNameInput ? machineNameInput.value.trim() : "";
       const hasName = machineName.length > 0;
       const hasModel = selectedModelFile !== null;
-      if (saveMachineBtn) saveMachineBtn.disabled = !(hasName && hasModel);
+      const isEditing = _editingMachineTypeId !== null;
+      if (saveMachineBtn) saveMachineBtn.disabled = !(hasName && (hasModel || isEditing));
     };
 
     if (modelFileInput) {
@@ -617,53 +645,63 @@ W3D.init = async function () {
       machineNameInput.addEventListener("input", updateSaveButton);
     }
 
-    // Save machine logic
+    // Save machine logic (create or edit)
     if (saveMachineBtn) {
       saveMachineBtn.addEventListener("click", async () => {
         const machineName = machineNameInput ? machineNameInput.value.trim() : "";
         const link1 = link1Input ? link1Input.value.trim() : "";
         const link2 = link2Input ? link2Input.value.trim() : "";
         const link3 = link3Input ? link3Input.value.trim() : "";
+        const isEditing = _editingMachineTypeId !== null;
 
-        if (!machineName || !selectedModelFile || !W3D.Supabase || !W3D.Database) {
-          return;
-        }
+        if (!machineName || !W3D.Supabase || !W3D.Database) return;
+        if (!isEditing && !selectedModelFile) return;
 
         saveMachineBtn.disabled = true;
         if (machineStatus) {
-          machineStatus.textContent = 'Machine wordt opgeslagen...';
-          machineStatus.classList.remove("is-ok");
-          machineStatus.classList.remove("is-error");
+          machineStatus.textContent = isEditing ? 'Wijzigingen worden opgeslagen...' : 'Machine wordt opgeslagen...';
+          machineStatus.classList.remove("is-ok", "is-error");
         }
 
         try {
           if (!W3D.Supabase.client) {
-            throw new Error(
-              W3D.Supabase.lastInitError || 'De opslag is op dit moment niet beschikbaar.',
-            );
+            throw new Error(W3D.Supabase.lastInitError || 'De opslag is op dit moment niet beschikbaar.');
           }
 
-          await W3D.Database.createMachineTypeWithFile({
-            name: machineName,
-            file: selectedModelFile,
-            links: [link1, link2, link3],
-          });
+          if (isEditing) {
+            console.log('[main] Bewerken opslaan — meegegeven waarden:', {
+              id: _editingMachineTypeId,
+              name: machineName,
+              oldStoragePath: _editingStoragePath,
+              newFile: selectedModelFile ? selectedModelFile.name : null,
+              links: [link1, link2, link3],
+            });
+            await W3D.Database.updateMachineTypeWithLinks({
+              id: _editingMachineTypeId,
+              name: machineName,
+              oldStoragePath: _editingStoragePath,
+              newFile: selectedModelFile,
+              links: [link1, link2, link3],
+            });
+          } else {
+            await W3D.Database.createMachineTypeWithFile({
+              name: machineName,
+              file: selectedModelFile,
+              links: [link1, link2, link3],
+            });
+          }
 
           if (W3D.Supabase.listFilesAndPopulateDropdown) {
             await W3D.Supabase.listFilesAndPopulateDropdown();
           }
 
           if (machineStatus) {
-            machineStatus.textContent = `Machine "${machineName}" is opgeslagen.`;
+            machineStatus.textContent = isEditing
+              ? `Machine "${machineName}" is bijgewerkt.`
+              : `Machine "${machineName}" is opgeslagen.`;
             machineStatus.classList.remove("is-error");
             machineStatus.classList.add("is-ok");
           }
-
-          if (machineNameInput) machineNameInput.value = "";
-          if (link1Input) link1Input.value = "";
-          if (link2Input) link2Input.value = "";
-          if (link3Input) link3Input.value = "";
-          clearModelFile();
 
           setTimeout(() => {
             closeOverlay();
@@ -672,7 +710,9 @@ W3D.init = async function () {
         } catch (error) {
           console.error("Error saving machine:", error);
           if (machineStatus) {
-            machineStatus.textContent = friendlyClientMessage(error, 'Het opslaan van de machine is niet gelukt.');
+            machineStatus.textContent = friendlyClientMessage(error, isEditing
+              ? 'Het bijwerken van de machine is niet gelukt.'
+              : 'Het opslaan van de machine is niet gelukt.');
             machineStatus.classList.remove("is-ok");
             machineStatus.classList.add("is-error");
           }
@@ -681,6 +721,102 @@ W3D.init = async function () {
         }
       });
     }
+
+    // ── Edit overlay helpers ───────────────────────────────────────────────
+    const openOverlayForEdit = (machineTypeData) => {
+      _editingMachineTypeId = machineTypeData.id || null;
+      _editingStoragePath = machineTypeData.storagePath || null;
+
+      const overlayTitle = machineOverlay && machineOverlay.querySelector(".overlay-title");
+      if (overlayTitle) overlayTitle.textContent = "Machine bewerken";
+      if (saveMachineBtn) saveMachineBtn.textContent = "Wijzigingen opslaan";
+
+      if (machineNameInput) machineNameInput.value = machineTypeData.name || "";
+      if (link1Input) link1Input.value = machineTypeData.link1 || "";
+      if (link2Input) link2Input.value = machineTypeData.link2 || "";
+      if (link3Input) link3Input.value = machineTypeData.link3 || "";
+
+      // Show current model filename above the drop zone; hide the drop zone label.
+      let editCurrentFile = document.getElementById("edit-current-model");
+      if (!editCurrentFile && modelDropZone) {
+        editCurrentFile = document.createElement("div");
+        editCurrentFile.id = "edit-current-model";
+        editCurrentFile.className = "model-preview";
+        modelDropZone.parentNode.insertBefore(editCurrentFile, modelDropZone);
+      }
+      if (editCurrentFile) {
+        const fileName = _editingStoragePath
+          ? _editingStoragePath.split("/").pop()
+          : "—";
+        editCurrentFile.innerHTML =
+          `<span class="model-preview-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>` +
+          `<div class="model-preview-info"><span class="model-preview-name">Huidig model: ${fileName}</span>` +
+          `<span class="model-preview-size">Nieuw bestand hieronder kiezen om te vervangen</span></div>`;
+        editCurrentFile.style.display = "flex";
+      }
+
+      clearModelFile();
+      if (machineStatus) {
+        machineStatus.textContent = "";
+        machineStatus.classList.remove("is-ok", "is-error");
+      }
+
+      updateSaveButton();
+      openDrawer();
+      openOverlay();
+    };
+
+    // Expose globally so transform.js and supabase.js can call it.
+    W3D.openOverlayForEdit = openOverlayForEdit;
+
+    // Called by the taskbar edit button via W3D.Transform.
+    // Uses data already stored in sel.props (set when the machine was loaded from the DB).
+    // Falls back to a Supabase fetch when machineTypeId is known but some props are missing.
+    W3D.onEditSelectedMachine = async () => {
+      const sel = W3D.Transform && W3D.Transform.selected;
+      if (!sel) return;
+
+      const props = sel.props || {};
+      const machineTypeId = props.machineTypeId || null;
+
+      // Always open with whatever we have from props first.
+      const editData = {
+        id: machineTypeId,
+        name: sel.name || "",
+        storagePath: props.storagePath || "",
+        link1: props.link1 || props.courseLink || "",
+        link2: props.link2 || props.maintenanceLink || "",
+        link3: props.link3 || props.safetyLink || "",
+      };
+
+      // If we have a machineTypeId and a Supabase client, try to fetch fresher data.
+      if (machineTypeId && W3D.Supabase && W3D.Supabase.client) {
+        try {
+          const { data } = await W3D.Supabase.client
+            .from("machine_types")
+            .select("id, name, model, machine_type_links(*)")
+            .eq("id", machineTypeId)
+            .maybeSingle();
+
+          if (data) {
+            const linkRow = Array.isArray(data.machine_type_links)
+              ? data.machine_type_links[0]
+              : data.machine_type_links || null;
+
+            editData.id = data.id;
+            editData.name = data.name || editData.name;
+            editData.storagePath = data.model || editData.storagePath;
+            editData.link1 = linkRow ? (linkRow.course_url || "") : editData.link1;
+            editData.link2 = linkRow ? (linkRow.maintenance_url || "") : editData.link2;
+            editData.link3 = linkRow ? (linkRow.safety_url || "") : editData.link3;
+          }
+        } catch (err) {
+          console.warn("Supabase fetch mislukt, gebruik scene-props als fallback:", err);
+        }
+      }
+
+      openOverlayForEdit(editData);
+    };
 
     const supabaseReady = Boolean(W3D.Supabase && W3D.Supabase.client);
     if (!supabaseReady) {

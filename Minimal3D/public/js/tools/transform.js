@@ -120,10 +120,14 @@ W3D.Transform = {
   _bindButtons() {
     const btnMove   = document.getElementById('btn-tool-move');
     const btnRotate = document.getElementById('btn-tool-rotate');
+    const btnEdit   = document.getElementById('btn-tool-edit');
     const btnDelete = document.getElementById('btn-tool-delete');
 
     if (btnMove)   btnMove.addEventListener('click',   () => this.setMode('move'));
     if (btnRotate) btnRotate.addEventListener('click', () => this.setMode('rotate'));
+    if (btnEdit)   btnEdit.addEventListener('click',   () => {
+      if (typeof W3D.onEditSelectedMachine === 'function') W3D.onEditSelectedMachine();
+    });
     if (btnDelete) btnDelete.addEventListener('click', () => this.deleteSelected());
 
     this._updateButtons();
@@ -132,6 +136,7 @@ W3D.Transform = {
   _updateButtons() {
     const btnMove   = document.getElementById('btn-tool-move');
     const btnRotate = document.getElementById('btn-tool-rotate');
+    const btnEdit   = document.getElementById('btn-tool-edit');
     const btnDelete = document.getElementById('btn-tool-delete');
     const hasSelection = Boolean(this.selected);
 
@@ -142,6 +147,9 @@ W3D.Transform = {
     if (btnRotate) {
       btnRotate.disabled = !hasSelection;
       btnRotate.classList.toggle('active', this.mode === 'rotate');
+    }
+    if (btnEdit) {
+      btnEdit.disabled = !hasSelection;
     }
     if (btnDelete) {
       btnDelete.disabled = !hasSelection;
