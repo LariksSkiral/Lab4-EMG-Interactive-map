@@ -86,6 +86,57 @@ const W3D = {
     return true;
   },
 
+  // Custom dialog utility — replaces native confirm() and alert() with styled modals.
+  dialog: {
+    _show({ title, message, confirmLabel, cancelLabel, isDanger }) {
+      return new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'w3d-dialog-backdrop';
+
+        const icon = isDanger
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`
+          : `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+
+        backdrop.innerHTML = `
+          <div class="w3d-dialog" role="dialog" aria-modal="true">
+            <div class="w3d-dialog-icon ${isDanger ? 'is-danger' : 'is-info'}">${icon}</div>
+            <div class="w3d-dialog-body">
+              <p class="w3d-dialog-title">${title}</p>
+              ${message ? `<p class="w3d-dialog-message">${message}</p>` : ''}
+            </div>
+            <div class="w3d-dialog-actions">
+              ${cancelLabel ? `<button class="w3d-dialog-btn secondary" data-action="cancel">${cancelLabel}</button>` : ''}
+              <button class="w3d-dialog-btn ${isDanger ? 'danger' : 'primary'}" data-action="confirm">${confirmLabel}</button>
+            </div>
+          </div>`;
+
+        const close = (result) => {
+          backdrop.classList.remove('is-visible');
+          setTimeout(() => backdrop.remove(), 180);
+          resolve(result);
+        };
+
+        backdrop.addEventListener('click', (e) => {
+          if (e.target === backdrop) close(false);
+        });
+        backdrop.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', () => close(btn.dataset.action === 'confirm'));
+        });
+
+        document.body.appendChild(backdrop);
+        requestAnimationFrame(() => backdrop.classList.add('is-visible'));
+      });
+    },
+
+    confirm(title, message) {
+      return this._show({ title, message, confirmLabel: 'Ja, verwijderen', cancelLabel: 'Annuleren', isDanger: true });
+    },
+
+    alert(title, message) {
+      return this._show({ title, message, confirmLabel: 'Sluiten', isDanger: false });
+    },
+  },
+
   History: {
     _limit: 60,
     _stack: [],

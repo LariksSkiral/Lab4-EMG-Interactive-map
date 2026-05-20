@@ -613,6 +613,14 @@ html, body {
   transition: background var(--transition), color var(--transition);
 }
 .sb-file-edit-btn:hover { background: var(--accent-light); color: var(--accent); }
+.sb-file-delete-btn {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-2); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.sb-file-delete-btn:hover { background: #fde8e8; color: #c0392b; }
+.sb-file-delete-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 #edit-current-model { margin-bottom: var(--sp-1); }
 
 .drawer-status {
@@ -890,3 +898,63 @@ html, body {
   margin: 0;
   text-align: center;
 }
+
+/* ── Custom dialog modal ──────────────────────────────────────────────────── */
+.w3d-dialog-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(67,8,7,.45);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity 180ms ease;
+}
+.w3d-dialog-backdrop.is-visible { opacity: 1; }
+
+.w3d-dialog {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  width: min(400px, calc(100vw - 48px));
+  padding: var(--sp-3);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-float);
+  transform: translateY(8px); transition: transform 180ms ease;
+}
+.w3d-dialog-backdrop.is-visible .w3d-dialog { transform: translateY(0); }
+
+.w3d-dialog-icon {
+  width: 44px; height: 44px; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.w3d-dialog-icon.is-danger { background: #fde8e8; color: #c0392b; }
+.w3d-dialog-icon.is-info   { background: var(--accent-light); color: var(--accent); }
+
+.w3d-dialog-body { display: flex; flex-direction: column; gap: 4px; }
+.w3d-dialog-title {
+  margin: 0; font-family: var(--font-ui); font-size: 15px;
+  font-weight: 700; color: var(--text-0); line-height: 1.3;
+}
+.w3d-dialog-message {
+  margin: 0; font-family: var(--font-ui); font-size: 13px;
+  color: var(--text-1); line-height: 1.5;
+}
+
+.w3d-dialog-actions {
+  display: flex; gap: var(--sp-1); justify-content: flex-end; margin-top: 4px;
+}
+.w3d-dialog-btn {
+  padding: 8px 16px; border-radius: var(--radius-md); border: 1px solid transparent;
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background var(--transition), box-shadow var(--transition);
+}
+.w3d-dialog-btn.secondary {
+  background: var(--bg-input); border-color: var(--border); color: var(--text-0);
+}
+.w3d-dialog-btn.secondary:hover { background: var(--bg-hover); }
+.w3d-dialog-btn.primary {
+  background: var(--accent); color: #fff;
+}
+.w3d-dialog-btn.primary:hover { background: var(--accent-dark); }
+.w3d-dialog-btn.danger {
+  background: #c0392b; color: #fff;
+}
+.w3d-dialog-btn.danger:hover { background: #a93226; }

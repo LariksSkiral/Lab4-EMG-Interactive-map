@@ -535,6 +535,9 @@ W3D.Supabase = {
 					`<span class="sb-file-item-name">${displayName}</span>` +
 					`<button class="sb-file-edit-btn" type="button" title="Bewerken" tabindex="0">` +
 					`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>` +
+					`</button>` +
+					`<button class="sb-file-delete-btn" type="button" title="Verwijderen" tabindex="0">` +
+					`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>` +
 					`</button>`;
 
 				const editBtn = div.querySelector('.sb-file-edit-btn');
@@ -587,6 +590,54 @@ W3D.Supabase = {
 
 						if (typeof W3D.openOverlayForEdit === 'function') {
 							W3D.openOverlayForEdit(editData);
+						}
+					});
+				}
+
+				const deleteBtn = div.querySelector('.sb-file-delete-btn');
+				if (deleteBtn) {
+					deleteBtn.addEventListener('click', async (e) => {
+						e.stopPropagation();
+
+						const confirmed = await W3D.dialog.confirm(
+							`"${displayName}" verwijderen?`,
+							'Dit verwijdert het 3D-model uit de opslag en alle bijhorende gegevens uit de database.'
+						);
+						if (!confirmed) return;
+
+						deleteBtn.disabled = true;
+						try {
+							let machineTypeId = null;
+
+							if (this.client) {
+								const normalizedPath = this._normalizeStoragePath(filePath);
+								let { data } = await this.client
+									.from('machine_types')
+									.select('id')
+									.eq('model', filePath)
+									.maybeSingle();
+
+								if (!data && normalizedPath && normalizedPath !== filePath) {
+									({ data } = await this.client
+										.from('machine_types')
+										.select('id')
+										.eq('model', normalizedPath)
+										.maybeSingle());
+								}
+
+								machineTypeId = data ? data.id : null;
+							}
+
+							if (!machineTypeId) {
+								throw new Error('Machine type niet gevonden in de database.');
+							}
+
+							await W3D.Database.deleteMachineType({ id: machineTypeId, storagePath: filePath });
+							await this.listFilesAndPopulateDropdown();
+						} catch (err) {
+							console.error('Verwijderen mislukt:', err);
+							W3D.dialog.alert('Verwijderen mislukt', err.message);
+							deleteBtn.disabled = false;
 						}
 					});
 				}

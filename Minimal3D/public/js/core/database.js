@@ -527,6 +527,64 @@ W3D.Database = {
     };
   },
 
+  // Delete a machine type and all its related data:
+  // 1. machine_type_links rows (foreign key on machine_type_id)
+  // 2. machine_types row
+  // 3. GLB file from storage
+  async deleteMachineType({ id, storagePath }) {
+    const client = await this._ensureClient();
+
+    if (!id) {
+      throw new Error('Geen machine-id opgegeven voor het verwijderen.');
+    }
+
+    console.log('[DB] deleteMachineType gestart', { id, storagePath });
+
+    // Stap 1: verwijder links-rij
+    const { error: deleteLinkError } = await client
+      .from(this.tables.machineTypeLinks)
+      .delete()
+      .eq(this.columns.machineTypeLinkMachineTypeForeignKey, id);
+
+    if (deleteLinkError) {
+      console.error('[DB] machine_type_links verwijderen mislukt:', deleteLinkError);
+      throw new Error('De links van de machine konden niet worden verwijderd.');
+    }
+
+    console.log('[DB] Stap 1 OK: links verwijderd');
+
+    // Stap 2: verwijder machine_types rij
+    const { error: deleteMachineError } = await client
+      .from(this.tables.machineTypes)
+      .delete()
+      .eq(this.columns.machineTypeId, id);
+
+    if (deleteMachineError) {
+      console.error('[DB] machine_types verwijderen mislukt:', deleteMachineError);
+      throw new Error('De machine kon niet worden verwijderd.');
+    }
+
+    console.log('[DB] Stap 2 OK: machine_types rij verwijderd');
+
+    // Stap 3: verwijder GLB bestand uit storage
+    if (storagePath && W3D.Supabase && W3D.Supabase.config && W3D.Supabase.config.bucket) {
+      const normalizedPath = this._normalizeStoragePath(storagePath);
+      if (normalizedPath) {
+        const { error: removeError } = await client.storage
+          .from(W3D.Supabase.config.bucket)
+          .remove([normalizedPath]);
+
+        if (removeError) {
+          console.error('[DB] Storage bestand verwijderen mislukt:', removeError);
+        } else {
+          console.log('[DB] Stap 3 OK: GLB bestand verwijderd uit storage:', normalizedPath);
+        }
+      }
+    }
+
+    console.log('[DB] deleteMachineType volledig geslaagd voor id', id);
+  },
+
   // Update an existing machine type's name, links, and optionally replace its 3D model file.
   // If newFile is provided, the new file is uploaded first, then the DB row is updated,
   // and finally the old file is removed from storage.
