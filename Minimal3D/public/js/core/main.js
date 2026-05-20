@@ -299,7 +299,7 @@ W3D.init = async function () {
 
     console.log('Model Loading Config:', { isElectron, isDevMode });
 
-    const defaultModelPaths = ["models/plattegrond.glb", "models/walls.glb"];
+    const defaultModelPaths = ["models/plattegrond.glb", "models/walls.glb", "models/details.glb"];
     for (const modelPath of defaultModelPaths) {
       try {
         let finalPath = modelPath;

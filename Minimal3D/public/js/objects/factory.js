@@ -249,12 +249,47 @@ W3D.Factory = {
             });
           });
           console.log('walls.glb materials found:', allMaterials);
-          
+
           gltf.scene.traverse(child => {
             if (!child.isMesh) return;
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             mats.forEach(mat => {
               const overrides = wallsMatOverrides[mat.name];
+              if (!overrides) return;
+              if (overrides.color     !== undefined) mat.color.set(overrides.color);
+              if (overrides.roughness !== undefined) mat.roughness = overrides.roughness;
+              if (overrides.metalness !== undefined) mat.metalness = overrides.metalness;
+              if (overrides.opacity   !== undefined) { mat.opacity = overrides.opacity; mat.transparent = overrides.opacity < 1; }
+              mat.needsUpdate = true;
+            });
+          });
+        }
+
+        // Handle details model — loaded as a static overlay on top of the floor plan
+        if (path.toLowerCase().includes('details')) {
+          const box = new THREE.Box3().setFromObject(model);
+          model.position.y -= box.min.y;
+
+          const detailsMatOverrides = {
+            // Add material overrides here by material name if needed
+            // Example: 'detailMaterial': { color: 0xffffff, roughness: 0.5, metalness: 0.0 },
+          };
+
+          const allMaterials = [];
+          gltf.scene.traverse(child => {
+            if (!child.isMesh) return;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              if (mat && mat.name && !allMaterials.includes(mat.name)) allMaterials.push(mat.name);
+            });
+          });
+          console.log('details.glb materials found:', allMaterials);
+
+          gltf.scene.traverse(child => {
+            if (!child.isMesh) return;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              const overrides = detailsMatOverrides[mat.name];
               if (!overrides) return;
               if (overrides.color     !== undefined) mat.color.set(overrides.color);
               if (overrides.roughness !== undefined) mat.roughness = overrides.roughness;
