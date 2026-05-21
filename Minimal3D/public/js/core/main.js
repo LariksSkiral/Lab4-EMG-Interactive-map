@@ -202,6 +202,14 @@ W3D.init = async function () {
         updateActionButtons();
       };
 
+      const resetCameraToOverview = () => {
+        if (!W3D.cameraFocus) return;
+        W3D.cameraFocus.targetPosition.set(17.46, 46.23, 19.68);
+        W3D.cameraFocus.targetLookAt.set(5.42, 1.21, -0.55);
+        W3D.cameraFocus.topZoom = null;
+        W3D.cameraFocus.active = true;
+      };
+
       const deselectMachine = () => {
         selectedMachine = null;
         clearHighlight();
@@ -247,6 +255,12 @@ W3D.init = async function () {
       };
 
       machineActionUI.addEventListener('click', event => {
+        if (event.target.closest('.machine-card-close')) {
+          deselectMachine();
+          resetCameraToOverview();
+          return;
+        }
+
         const button = event.target.closest('.action-icon');
         if (!button || button.disabled) return;
 
