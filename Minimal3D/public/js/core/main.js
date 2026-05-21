@@ -916,9 +916,11 @@ W3D.init = async function () {
       await W3D.Database.loadSavedMachinesIntoScene();
       // All machines loaded → remove the lock so the preloader can close.
       if (W3D.Preloader) W3D.Preloader.unlock();
+      setTimeout(() => { if (W3D.startIntroAnimation) W3D.startIntroAnimation(); }, 400);
     } else {
       // No database available → close preloader immediately.
       if (W3D.Preloader) W3D.Preloader.finish();
+      setTimeout(() => { if (W3D.startIntroAnimation) W3D.startIntroAnimation(); }, 400);
     }
   }
 };

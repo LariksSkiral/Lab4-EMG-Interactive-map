@@ -26,8 +26,8 @@ W3D.initRenderer = function() {
 
   // ── Perspective camera (3D view) ─────────────────────────────────────────
   W3D.camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 800);
-  W3D.camera.position.set(17.46, 46.23, 19.68);
-  W3D.camera.lookAt(5.42, 1.21, -0.55);
+  W3D.camera.position.set(5.42, 85, -0.55);
+  W3D.camera.lookAt(5.42, 0, -0.55);
 
   // ── Orthographic camera (top / 2D view) ──────────────────────────────────
   const aspect = window.innerWidth / window.innerHeight;
@@ -98,11 +98,18 @@ W3D.initRenderer = function() {
   W3D.orbitControls.maxPolarAngle = Math.PI / 2.1;
   W3D.orbitControls.minDistance = 0.5;
   W3D.orbitControls.maxDistance = 200;
+  W3D.orbitControls.target.set(5.42, 0, -0.55);
 
 
   W3D.orbitControls.addEventListener('start', function() {
-  if (W3D.cameraFocus) W3D.cameraFocus.active = false;
-});
+    if (W3D.cameraFocus) W3D.cameraFocus.active = false;
+    if (W3D.introAnim && W3D.introAnim.active) {
+      W3D.introAnim.active = false;
+      W3D.camera.position.copy(W3D.introAnim.toPos);
+      W3D.orbitControls.target.copy(W3D.introAnim.toTarget);
+      W3D.orbitControls.enabled = true;
+    }
+  });
 
   W3D.orbitControls.addEventListener('end', function() {
     const p = W3D.activeCamera.position;
@@ -119,6 +126,29 @@ W3D.initRenderer = function() {
     targetPosition: new THREE.Vector3(),
     targetLookAt: new THREE.Vector3(),
     topZoom: null,
+  };
+
+  function easeInOutQuint(t) {
+    return t < 0.5 ? 16*t*t*t*t*t : 1 - Math.pow(-2*t+2, 5)/2;
+  }
+
+  W3D.introAnim = {
+    active: false,
+    startTime: 0,
+    duration: 2400,
+    fromPos: new THREE.Vector3(),
+    fromTarget: new THREE.Vector3(),
+    toPos: new THREE.Vector3(17.46, 46.23, 19.68),
+    toTarget: new THREE.Vector3(5.42, 1.21, -0.55),
+  };
+
+  W3D.startIntroAnimation = function() {
+    const a = W3D.introAnim;
+    a.fromPos.copy(W3D.camera.position);
+    a.fromTarget.copy(W3D.orbitControls.target);
+    a.startTime = performance.now();
+    a.active = true;
+    W3D.orbitControls.enabled = false;
   };
 
   const floorY = 0;
@@ -216,6 +246,21 @@ W3D.initRenderer = function() {
   // Animation loop - runs every frame to update and draw
   (function animate() {
     requestAnimationFrame(animate);
+
+    if (W3D.introAnim && W3D.introAnim.active) {
+      const a = W3D.introAnim;
+      const t = Math.min((performance.now() - a.startTime) / a.duration, 1);
+      const et = easeInOutQuint(t);
+      W3D.camera.position.lerpVectors(a.fromPos, a.toPos, et);
+      W3D.orbitControls.target.lerpVectors(a.fromTarget, a.toTarget, et);
+      W3D.camera.lookAt(W3D.orbitControls.target);
+      if (t >= 1) {
+        W3D.camera.position.copy(a.toPos);
+        W3D.orbitControls.target.copy(a.toTarget);
+        a.active = false;
+        W3D.orbitControls.enabled = true;
+      }
+    }
 
     if (W3D.cameraFocus && W3D.cameraFocus.active) {
       const focus = W3D.cameraFocus;
