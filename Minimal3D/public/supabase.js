@@ -476,6 +476,29 @@ W3D.Supabase = {
 		const glbFiles = (data || []).filter(item => /\.(glb|gltf)$/i.test(item.name || ''));
 		const machineDataByPath = await this._fetchMachineTypeNamesByStoragePath();
 
+		// ── Dry-run orphan check ───────────────────────────────────────────────
+		// Bestanden in storage zonder bijbehorend machine_types record zijn orphans.
+		// Nog niet verwijderen — alleen loggen ter controle.
+		const orphanedFiles = glbFiles.filter(item => {
+			const filePath = folder ? `${folder}/${item.name}` : item.name;
+			const normalizedPath = this._normalizeStoragePath(filePath);
+			const fileName = this._getFileNameFromPath(filePath);
+			return !machineDataByPath.get(filePath)
+				&& !machineDataByPath.get(normalizedPath)
+				&& !machineDataByPath.get(item.name)
+				&& !machineDataByPath.get(fileName);
+		});
+
+		if (orphanedFiles.length > 0) {
+			console.warn(
+				`[Cleanup] ${orphanedFiles.length} GLB bestand(en) in storage zonder database-record (zouden verwijderd worden):`,
+				orphanedFiles.map(item => folder ? `${folder}/${item.name}` : item.name)
+			);
+		} else {
+			console.log('[Cleanup] Geen orphaned GLB bestanden gevonden — storage en database zijn in sync.');
+		}
+		// ─────────────────────────────────────────────────────────────────────
+
 		const getMachineData = (item) => {
 			const filePath = folder ? `${folder}/${item.name}` : item.name;
 			const normalizedPath = this._normalizeStoragePath(filePath);
