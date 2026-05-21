@@ -181,6 +181,11 @@ W3D.Transform = {
       this.controls.showX = false;
       this.controls.showY = true;
       this.controls.showZ = false;
+      // Size the ring to fit snugly around the machine (bounding sphere + 20% margin)
+      const box = new THREE.Box3().setFromObject(this.selected.mesh);
+      const sphere = new THREE.Sphere();
+      box.getBoundingSphere(sphere);
+      this.controls.setSize(sphere.radius * 1.2);
       this.controls.attach(this.selected.mesh);
     } else {
       this.controls.detach();
