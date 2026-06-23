@@ -40,6 +40,8 @@ W3D.Transform = {
     const tc = new THREE.TransformControls(W3D.camera, W3D.renderer.domElement);
     tc.setSpace('world');
     tc.setSize(0.9);
+    tc.translationSnap = null;         // free movement by default
+    tc.rotationSnap = Math.PI / 180;  // rotate in steps of 1 degree by default
     W3D.scene.add(tc);
     this.controls = tc;
 
@@ -98,6 +100,20 @@ W3D.Transform = {
     // Keyboard shortcuts
     window.addEventListener('keydown', e => this._onKey(e));
 
+    // Shift held → snap movement to 1 unit, snap rotation to 45°
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Shift' && this.controls) {
+        this.controls.translationSnap = 1;
+        this.controls.rotationSnap = Math.PI / 4;
+      }
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key === 'Shift' && this.controls) {
+        this.controls.translationSnap = null;
+        this.controls.rotationSnap = Math.PI / 180;
+      }
+    });
+
     // Wire up taskbar buttons
     this._bindButtons();
   },
@@ -106,10 +122,14 @@ W3D.Transform = {
   _bindButtons() {
     const btnMove   = document.getElementById('btn-tool-move');
     const btnRotate = document.getElementById('btn-tool-rotate');
+    const btnEdit   = document.getElementById('btn-tool-edit');
     const btnDelete = document.getElementById('btn-tool-delete');
 
     if (btnMove)   btnMove.addEventListener('click',   () => this.setMode('move'));
     if (btnRotate) btnRotate.addEventListener('click', () => this.setMode('rotate'));
+    if (btnEdit)   btnEdit.addEventListener('click',   () => {
+      if (typeof W3D.onEditSelectedMachine === 'function') W3D.onEditSelectedMachine();
+    });
     if (btnDelete) btnDelete.addEventListener('click', () => this.deleteSelected());
 
     this._updateButtons();
@@ -118,6 +138,7 @@ W3D.Transform = {
   _updateButtons() {
     const btnMove   = document.getElementById('btn-tool-move');
     const btnRotate = document.getElementById('btn-tool-rotate');
+    const btnEdit   = document.getElementById('btn-tool-edit');
     const btnDelete = document.getElementById('btn-tool-delete');
     const hasSelection = Boolean(this.selected);
 
@@ -128,6 +149,9 @@ W3D.Transform = {
     if (btnRotate) {
       btnRotate.disabled = !hasSelection;
       btnRotate.classList.toggle('active', this.mode === 'rotate');
+    }
+    if (btnEdit) {
+      btnEdit.disabled = !hasSelection;
     }
     if (btnDelete) {
       btnDelete.disabled = !hasSelection;
@@ -157,6 +181,11 @@ W3D.Transform = {
       this.controls.showX = false;
       this.controls.showY = true;
       this.controls.showZ = false;
+      // Size the ring to fit snugly around the machine (bounding sphere + 20% margin)
+      const box = new THREE.Box3().setFromObject(this.selected.mesh);
+      const sphere = new THREE.Sphere();
+      box.getBoundingSphere(sphere);
+      this.controls.setSize(sphere.radius * 1.2);
       this.controls.attach(this.selected.mesh);
     } else {
       this.controls.detach();
@@ -263,8 +292,8 @@ W3D.Transform = {
     const posEl  = document.getElementById('tf-obj-pos');
     const rotEl  = document.getElementById('tf-obj-rot');
     if (nameEl) nameEl.textContent = this.selected.name;
-    if (posEl)  posEl.textContent  = `X ${m.position.x.toFixed(2)}  Z ${m.position.z.toFixed(2)}`;
-    if (rotEl)  rotEl.textContent  = `${THREE.MathUtils.radToDeg(m.rotation.y).toFixed(1)}°`;
+    if (posEl)  posEl.textContent  = `X ${Math.round(m.position.x)}  Z ${Math.round(m.position.z)}`;
+    if (rotEl)  rotEl.textContent  = `${Math.round(THREE.MathUtils.radToDeg(m.rotation.y))}°`;
   },
 
   /* ── Pointer handling (raycasting) ─────────────────────────────────────── */

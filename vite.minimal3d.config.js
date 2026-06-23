@@ -5,6 +5,9 @@ export default defineConfig({
   // This means `npm run dev:minimal3d` serves Minimal3D,
   // while the existing `npm run dev` still serves Xander exactly as before.
   root: './Minimal3D',
+  // './' makes Vite emit relative asset paths instead of absolute (/assets/...).
+  // Absolute paths break under file:// protocol used by the packaged Electron app.
+  base: './',
   build: {
     outDir: '../dist-minimal3d',
     rollupOptions: {

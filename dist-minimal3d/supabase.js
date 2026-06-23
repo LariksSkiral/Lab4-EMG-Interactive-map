@@ -118,34 +118,32 @@ W3D.Supabase = {
 
 		const { data, error } = await this.client
 			.from('machine_types')
-			.select('name, model');
+			.select('name, model, category_id');
 
 		if (error) {
 			console.warn('Machine type names could not be loaded for the model library:', error);
 			return new Map();
 		}
 
-		const namesByStoragePath = new Map();
+		// Returns Map<storagePath, { name, categoryId }>
+		const dataByStoragePath = new Map();
 		(data || []).forEach(row => {
 			const storagePath = row && row.model ? String(row.model).trim() : '';
 			const machineName = row && row.name ? String(row.name).trim() : '';
+			const categoryId = row && row.category_id != null ? row.category_id : null;
 			const fileName = this._getFileNameFromPath(storagePath);
 
 			if (!storagePath || !machineName) return;
 
-			namesByStoragePath.set(storagePath, machineName);
+			const entry = { name: machineName, categoryId };
+			dataByStoragePath.set(storagePath, entry);
 
 			const normalizedPath = this._normalizeStoragePath(storagePath);
-			if (normalizedPath) {
-				namesByStoragePath.set(normalizedPath, machineName);
-			}
-
-			if (fileName) {
-				namesByStoragePath.set(fileName, machineName);
-			}
+			if (normalizedPath) dataByStoragePath.set(normalizedPath, entry);
+			if (fileName) dataByStoragePath.set(fileName, entry);
 		});
 
-		return namesByStoragePath;
+		return dataByStoragePath;
 	},
 
 	// Show a human-friendly message in the UI panel.
@@ -456,101 +454,246 @@ W3D.Supabase = {
 		await this.listFilesAndPopulateDropdown();
 	},
 
-	// Load list of files from Supabase bucket and show them in the dropdown.
+	// Load list of files from Supabase bucket and show them in the dropdown, grouped by zone.
 	async listFilesAndPopulateDropdown() {
-		// Guard: if not connected, skip silently.
 		if (!this.client) {
 			this.setStatus(this.lastInitError || 'De opslag is op dit moment niet beschikbaar.', true);
 			return;
 		}
 
-		// Folder can be empty string (bucket root) or configured folder path.
 		const folder = this.config.folder || '';
 
-		// Ask Supabase for up to 100 files in folder, sorted by name.
 		const { data, error } = await this.client.storage
 			.from(this.config.bucket)
-			.list(folder, {
-				limit: 100,
-				sortBy: { column: 'name', order: 'asc' },
-			});
+			.list(folder, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
 
-		// Show user-facing error if listing failed.
 		if (error) {
 			this.setStatus(this._friendlyStorageError(error, 'De modellenlijst kon niet worden opgehaald.'), true);
 			console.error('Supabase list error:', error);
 			return;
 		}
 
-		// Keep only 3D model files we care about.
 		const glbFiles = (data || []).filter(item => /\.(glb|gltf)$/i.test(item.name || ''));
-		const machineTypeNamesByStoragePath = await this._fetchMachineTypeNamesByStoragePath();
-		const getDisplayName = (item) => {
+		const machineDataByPath = await this._fetchMachineTypeNamesByStoragePath();
+
+		// ── Dry-run orphan check ───────────────────────────────────────────────
+		// Bestanden in storage zonder bijbehorend machine_types record zijn orphans.
+		// Nog niet verwijderen — alleen loggen ter controle.
+		const orphanedFiles = glbFiles.filter(item => {
 			const filePath = folder ? `${folder}/${item.name}` : item.name;
 			const normalizedPath = this._normalizeStoragePath(filePath);
 			const fileName = this._getFileNameFromPath(filePath);
-			return machineTypeNamesByStoragePath.get(filePath)
-				|| machineTypeNamesByStoragePath.get(normalizedPath)
-				|| machineTypeNamesByStoragePath.get(item.name)
-				|| machineTypeNamesByStoragePath.get(fileName)
-				|| item.name;
+			return !machineDataByPath.get(filePath)
+				&& !machineDataByPath.get(normalizedPath)
+				&& !machineDataByPath.get(item.name)
+				&& !machineDataByPath.get(fileName);
+		});
+
+		if (orphanedFiles.length > 0) {
+			console.warn(
+				`[Cleanup] ${orphanedFiles.length} GLB bestand(en) in storage zonder database-record (zouden verwijderd worden):`,
+				orphanedFiles.map(item => folder ? `${folder}/${item.name}` : item.name)
+			);
+		} else {
+			console.log('[Cleanup] Geen orphaned GLB bestanden gevonden — storage en database zijn in sync.');
+		}
+		// ─────────────────────────────────────────────────────────────────────
+
+		const getMachineData = (item) => {
+			const filePath = folder ? `${folder}/${item.name}` : item.name;
+			const normalizedPath = this._normalizeStoragePath(filePath);
+			const fileName = this._getFileNameFromPath(filePath);
+			return machineDataByPath.get(filePath)
+				|| machineDataByPath.get(normalizedPath)
+				|| machineDataByPath.get(item.name)
+				|| machineDataByPath.get(fileName)
+				|| null;
 		};
 
-		// ── Update hidden <select> (used by loadSelectedFileIntoScene) ────────
+		// ── Update hidden <select> ─────────────────────────────────────────────
 		if (this.ui.fileSelect) {
 			this.ui.fileSelect.innerHTML = '';
 			glbFiles.forEach(item => {
 				const filePath = folder ? `${folder}/${item.name}` : item.name;
+				const machineData = getMachineData(item);
 				const option = document.createElement('option');
 				option.value = filePath;
-				option.textContent = getDisplayName(item);
+				option.textContent = machineData ? machineData.name : item.name;
 				this.ui.fileSelect.appendChild(option);
 			});
 		}
 
-		// ── Update the visible file library list ──────────────────────────────
+		// ── Update visible file library list ──────────────────────────────────
 		const fileList = document.getElementById('sb-file-list');
-		if (fileList) {
-			fileList.innerHTML = '';
+		if (!fileList) return;
 
-			if (glbFiles.length === 0) {
-				// Show friendly empty state.
-				const empty = document.createElement('div');
-				empty.className = 'sb-file-empty';
-				empty.textContent = 'Nog geen modellen beschikbaar';
-				fileList.appendChild(empty);
-				this.setStatus(`Er zijn nog geen 3D-modellen gevonden in ${this._getFolderLabel()}.`);
-				return;
-			}
+		fileList.innerHTML = '';
 
-			// One list item per model file.
-			glbFiles.forEach(item => {
-				const filePath = folder ? `${folder}/${item.name}` : item.name;
-				const displayName = getDisplayName(item);
-
-				const div = document.createElement('div');
-				div.className = 'sb-file-item';
-				div.dataset.filePath = filePath;
-				div.innerHTML = `<span class="sb-file-item-icon">◈</span>` +
-					`<span class="sb-file-item-name">${displayName}</span>`;
-
-				div.addEventListener('click', () => {
-					// Deselect all other items first.
-					fileList.querySelectorAll('.sb-file-item')
-						.forEach(el => el.classList.remove('is-selected'));
-					// Highlight the clicked item.
-					div.classList.add('is-selected');
-					// Sync the hidden select to the same value so load still works.
-					if (this.ui.fileSelect) this.ui.fileSelect.value = filePath;
-					// Enable load button now that a model is chosen.
-					if (this.ui.loadButton) this.ui.loadButton.disabled = false;
-				});
-
-				fileList.appendChild(div);
-			});
+		if (glbFiles.length === 0) {
+			const empty = document.createElement('div');
+			empty.className = 'sb-file-empty';
+			empty.textContent = 'Nog geen modellen beschikbaar';
+			fileList.appendChild(empty);
+			this.setStatus(`Er zijn nog geen 3D-modellen gevonden in ${this._getFolderLabel()}.`);
+			return;
 		}
 
-		// Show count so user knows list is ready.
+		// ── Zone definitions ──────────────────────────────────────────────────
+		const CATEGORY_NAMES = {
+			1: 'Verspanningszone',
+			2: '(De)montagezone',
+			3: 'Lasplaats',
+			4: 'CNC zone',
+			5: 'Magazijn',
+			6: 'Reinigingzone',
+			7: 'Overige',
+		};
+		// Zone 7 (Overige) also catches models with no category assigned
+		const CATEGORY_ORDER = [1, 2, 3, 4, 5, 6, 7];
+
+		// ── Group files by category ───────────────────────────────────────────
+		// null and 7 both map to the "Overige" bucket (key = 7)
+		const groups = new Map();
+		glbFiles.forEach(item => {
+			const filePath = folder ? `${folder}/${item.name}` : item.name;
+			const machineData = getMachineData(item);
+			const displayName = machineData ? machineData.name : item.name;
+			const rawCategoryId = machineData ? machineData.categoryId : null;
+			const categoryId = (rawCategoryId === null || rawCategoryId === undefined) ? 7 : rawCategoryId;
+
+			if (!groups.has(categoryId)) groups.set(categoryId, []);
+			groups.get(categoryId).push({ item, filePath, displayName });
+		});
+
+		const renderOrder = CATEGORY_ORDER.filter(id => groups.has(id));
+
+		// ── Helper: build one sb-file-item div ────────────────────────────────
+		const buildFileItem = (filePath, displayName) => {
+			const div = document.createElement('div');
+			div.className = 'sb-file-item';
+			div.dataset.filePath = filePath;
+			div.innerHTML =
+				`<span class="sb-file-item-icon">◈</span>` +
+				`<span class="sb-file-item-name">${displayName}</span>` +
+				`<button class="sb-file-edit-btn" type="button" title="Bewerken" tabindex="0">` +
+				`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>` +
+				`</button>` +
+				`<button class="sb-file-delete-btn" type="button" title="Verwijderen" tabindex="0">` +
+				`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>` +
+				`</button>`;
+
+			// Edit button
+			const editBtn = div.querySelector('.sb-file-edit-btn');
+			if (editBtn) {
+				editBtn.addEventListener('click', async (e) => {
+					e.stopPropagation();
+					const editData = { id: null, name: displayName, storagePath: filePath, link1: '', link2: '', link3: '', categoryId: null };
+
+					if (this.client) {
+						try {
+							const normalizedPath = this._normalizeStoragePath(filePath);
+							let { data: row } = await this.client
+								.from('machine_types')
+								.select('id, name, model, category_id, machine_type_links(*)')
+								.eq('model', filePath)
+								.maybeSingle();
+
+							if (!row && normalizedPath && normalizedPath !== filePath) {
+								({ data: row } = await this.client
+									.from('machine_types')
+									.select('id, name, model, category_id, machine_type_links(*)')
+									.eq('model', normalizedPath)
+									.maybeSingle());
+							}
+
+							if (row) {
+								const linkRow = Array.isArray(row.machine_type_links) ? row.machine_type_links[0] : row.machine_type_links || null;
+								editData.id = row.id;
+								editData.name = row.name || displayName;
+								editData.categoryId = row.category_id || null;
+								editData.link1 = linkRow ? (linkRow.course_url || '') : '';
+								editData.link2 = linkRow ? (linkRow.maintenance_url || '') : '';
+								editData.link3 = linkRow ? (linkRow.safety_url || '') : '';
+								console.log('[supabase] Pencil fetch OK — category_id:', row.category_id, '| editData:', editData);
+							} else {
+								console.warn('[supabase] Pencil fetch: geen rij gevonden voor pad:', filePath);
+							}
+						} catch (fetchErr) {
+							console.warn('Machine type gegevens konden niet worden opgehaald:', fetchErr);
+						}
+					}
+
+					if (typeof W3D.openOverlayForEdit === 'function') W3D.openOverlayForEdit(editData);
+				});
+			}
+
+			// Delete button
+			const deleteBtn = div.querySelector('.sb-file-delete-btn');
+			if (deleteBtn) {
+				deleteBtn.addEventListener('click', async (e) => {
+					e.stopPropagation();
+					const confirmed = await W3D.dialog.confirm(
+						`"${displayName}" verwijderen?`,
+						'Dit verwijdert het 3D-model uit de opslag en alle bijhorende gegevens uit de database.'
+					);
+					if (!confirmed) return;
+
+					deleteBtn.disabled = true;
+					try {
+						let machineTypeId = null;
+						if (this.client) {
+							const normalizedPath = this._normalizeStoragePath(filePath);
+							let { data: row } = await this.client.from('machine_types').select('id').eq('model', filePath).maybeSingle();
+							if (!row && normalizedPath && normalizedPath !== filePath) {
+								({ data: row } = await this.client.from('machine_types').select('id').eq('model', normalizedPath).maybeSingle());
+							}
+							machineTypeId = row ? row.id : null;
+						}
+						if (!machineTypeId) throw new Error('Machine type niet gevonden in de database.');
+						await W3D.Database.deleteMachineType({ id: machineTypeId, storagePath: filePath });
+						await this.listFilesAndPopulateDropdown();
+					} catch (err) {
+						console.error('Verwijderen mislukt:', err);
+						W3D.dialog.alert('Verwijderen mislukt', err.message);
+						deleteBtn.disabled = false;
+					}
+				});
+			}
+
+			// Select on click
+			div.addEventListener('click', () => {
+				fileList.querySelectorAll('.sb-file-item').forEach(el => el.classList.remove('is-selected'));
+				div.classList.add('is-selected');
+				if (this.ui.fileSelect) this.ui.fileSelect.value = filePath;
+				if (this.ui.loadButton) this.ui.loadButton.disabled = false;
+			});
+
+			return div;
+		};
+
+		// ── Render zone sections — each zone gets its own titled file list ────
+		renderOrder.forEach(categoryId => {
+			const items = groups.get(categoryId);
+			const zoneName = categoryId !== null ? (CATEGORY_NAMES[categoryId] || `Zone ${categoryId}`) : 'Geen zone';
+
+			const section = document.createElement('div');
+			section.className = 'sb-zone-section';
+
+			const title = document.createElement('span');
+			title.className = 'sb-zone-title';
+			title.textContent = zoneName;
+			section.appendChild(title);
+
+			const list = document.createElement('div');
+			list.className = 'sb-file-list';
+			items.forEach(({ filePath, displayName }) => {
+				list.appendChild(buildFileItem(filePath, displayName));
+			});
+			section.appendChild(list);
+
+			fileList.appendChild(section);
+		});
+
 		this.setStatus(`${glbFiles.length} model${glbFiles.length === 1 ? '' : 'len'} beschikbaar in ${this._getFolderLabel()}.`);
 	},
 
@@ -600,7 +743,8 @@ W3D.Supabase = {
 
 		// Use existing Three.js factory method to load model from URL.
 		try {
-			await W3D.Factory.loadRemoteGLTF(modelUrl, fileName, { storagePath: filePath });
+			const obj = await W3D.Factory.loadRemoteGLTF(modelUrl, fileName, { storagePath: filePath });
+			if (obj && W3D.focusCameraOnObject) W3D.focusCameraOnObject(obj);
 			this.setStatus(`${fileName} staat nu in de ruimte. Zet het op de juiste plek en klik daarna op Opslaan.`);
 		} catch (loadError) {
 			console.error('Supabase model load error:', loadError);

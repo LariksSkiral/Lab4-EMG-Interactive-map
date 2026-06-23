@@ -10,14 +10,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minimal3D Student</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" crossorigin href="/assets/ui-CeAITvUJ.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" crossorigin href="./assets/ui-7gNWSIe5.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="tb-left">
-        <span class="tb-logo">⬡ Mechanische Werkplaats</span>
+        <span class="tb-logo"><i data-lucide="factory"></i> EMG 3D Workshop</span>
       </div>
       <div class="tb-right">
         <div class="view-toggle mode-toggle" aria-label="Applicatiemodus">
@@ -28,6 +29,22 @@
     </header>
 
     <main class="main-stage">
+      <!--
+        PRELOADER: standaard zichtbaar (geen 'is-hidden' klasse).
+        JavaScript voegt 'preloader--hidden' toe zodra alle modellen geladen zijn.
+        De CSS regelt de fade-out animatie.
+      -->
+      <div id="preloader" class="preloader">
+        <div class="preloader__inner">
+          <div class="preloader__brand">EMG 3D Workshop</div>
+          <div class="preloader__spinner"></div>
+          <div class="preloader__bar-track">
+            <div class="preloader__bar-fill" id="preloader-bar"></div>
+          </div>
+          <p class="preloader__status" id="preloader-status">Laden...</p>
+        </div>
+      </div>
+
       <canvas id="three-canvas"></canvas>
 
       <button
@@ -39,7 +56,7 @@
         aria-controls="viewer-help-modal"
         aria-expanded="false"
       >
-        ?
+        <i data-lucide="circle-help"></i>
       </button>
 
       <div id="viewer-help-modal" class="viewer-help-modal is-hidden" aria-hidden="true">
@@ -52,7 +69,7 @@
           aria-describedby="viewer-help-description"
         >
           <button id="viewer-help-close" class="viewer-help-close" type="button" aria-label="Sluit hulp">
-            ✕
+            <i data-lucide="x"></i>
           </button>
 
           <p class="viewer-help-eyebrow">Snelle hulp</p>
@@ -63,7 +80,7 @@
 
           <div class="viewer-help-grid">
             <article class="viewer-help-card">
-              <span class="viewer-help-icon">⟲</span>
+              <span class="viewer-help-icon"><i data-lucide="rotate-ccw"></i></span>
               <div>
                 <h3>Draaien</h3>
                 <p>Klik met de linkermuisknop en sleep om de camera te draaien en rond te kijken.</p>
@@ -71,7 +88,7 @@
             </article>
 
             <article class="viewer-help-card">
-              <span class="viewer-help-icon">✥</span>
+              <span class="viewer-help-icon"><i data-lucide="move"></i></span>
               <div>
                 <h3>Verplaatsen</h3>
                 <p>Klik met de rechtermuisknop en sleep om over de kaart te schuiven zonder van hoogte te veranderen.</p>
@@ -79,7 +96,7 @@
             </article>
 
             <article class="viewer-help-card">
-              <span class="viewer-help-icon">⇅</span>
+              <span class="viewer-help-icon"><i data-lucide="zoom-in"></i></span>
               <div>
                 <h3>Zoom</h3>
                 <p>Scroll omhoog of omlaag om dichterbij te komen of juist meer overzicht te krijgen.</p>
@@ -87,7 +104,7 @@
             </article>
 
             <article class="viewer-help-card">
-              <span class="viewer-help-icon">⟷</span>
+              <span class="viewer-help-icon"><i data-lucide="hand"></i></span>
               <div>
                 <h3>Slepen</h3>
                 <p>Klik, houd vast en beweeg eerst rustig. Kleine bewegingen geven meer controle.</p>
@@ -102,9 +119,29 @@
       </div>
 
       <div id="machine-action-icons" class="machine-action-icons is-hidden" aria-label="Machine-acties">
-        <button type="button" data-action="course" class="action-icon" title="Leerstof">📘</button>
-        <button type="button" data-action="maintenance" class="action-icon" title="Onderhoud">⚙️</button>
-        <button type="button" data-action="safety" class="action-icon" title="Veiligheid">⚠️</button>
+        <div class="machine-card">
+          <div class="machine-card-header">
+            <span class="machine-card-name">Machine</span>
+            <button type="button" id="machine-card-close" class="machine-card-close" title="Sluiten" aria-label="Sluit machine-informatie">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <div class="machine-card-divider"></div>
+          <div class="machine-card-actions">
+            <button type="button" data-action="course" class="action-icon" title="Leerstof">
+              <i data-lucide="book-open"></i>
+              <span>Cursusmateriaal</span>
+            </button>
+            <button type="button" data-action="maintenance" class="action-icon" title="Onderhoud">
+              <i data-lucide="wrench"></i>
+              <span>Onderhoud</span>
+            </button>
+            <button type="button" data-action="safety" class="action-icon" title="Veiligheid">
+              <i data-lucide="shield-alert"></i>
+              <span>Veiligheid</span>
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -125,10 +162,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script src="js/core/state.js"></script>
+  <script src="js/core/preloader.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/objects/factory.js"></script>
   <script src="supabase.js"></script>
   <script src="js/core/database.js"></script>
   <script src="js/core/main.js"></script>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => lucide.createIcons());</script>
 </body>
 </html>

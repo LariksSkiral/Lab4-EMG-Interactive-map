@@ -1,6 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd .. && npm install",
-  "buildCommand": "cd .. && npx vite build --config vite.minimal3d.config.js",
-  "outputDirectory": "../dist-minimal3d"
-}

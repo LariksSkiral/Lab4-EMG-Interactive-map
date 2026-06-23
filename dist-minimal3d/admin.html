@@ -10,17 +10,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minimal3D Docent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap"
-    rel="stylesheet">
-  <link rel="stylesheet" crossorigin href="/assets/ui-CeAITvUJ.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" crossorigin href="./assets/ui-7gNWSIe5.css">
 </head>
 
 <body>
   <div class="app-shell">
+    <!--
+      PRELOADER: standaard zichtbaar (geen 'is-hidden' klasse).
+      JavaScript voegt 'preloader--hidden' toe zodra de auth-check klaar is
+      en alle modellen geladen zijn. De CSS regelt de fade-out animatie.
+    -->
+    <div id="preloader" class="preloader preloader--hidden">
+      <div class="preloader__inner">
+        <div class="preloader__brand">EMG 3D Workshop</div>
+        <div class="preloader__spinner"></div>
+        <div class="preloader__bar-track">
+          <div class="preloader__bar-fill" id="preloader-bar"></div>
+        </div>
+        <p class="preloader__status" id="preloader-status">Laden...</p>
+      </div>
+    </div>
+
     <header class="topbar">
       <div class="tb-left">
-        <span class="tb-logo">⬡ Mechanische Werkplaats</span>
+        <span class="tb-logo"><i data-lucide="factory"></i> EMG 3D Workshop</span>
       </div>
       <div class="tb-center">
         <div class="view-toggle">
@@ -77,20 +92,22 @@
       <aside id="uploader-drawer" class="uploader-drawer" aria-label="Modellenmenu">
         <div class="drawer-header">
           <div class="drawer-title-row">
-            <span class="drawer-icon">⬡</span>
+            <span class="drawer-icon"><i data-lucide="layout-grid"></i></span>
             <span class="drawer-title">Modelbibliotheek</span>
           </div>
           <div class="drawer-header-actions">
-            <button id="btn-open-machine-form" class="drawer-icon-btn drawer-create-btn" type="button"
-              title="Nieuwe machine toevoegen">＋</button>
-            <button id="drawer-close" class="drawer-close" type="button" title="Sluit menu">✕</button>
+            <button id="drawer-close" class="drawer-close" type="button" title="Sluit menu"><i data-lucide="x"></i></button>
           </div>
         </div>
 
         <div class="drawer-section">
           <div class="drawer-library-header">
             <span class="drawer-label">Beschikbare modellen</span>
-            <button id="sb-refresh-btn" class="drawer-icon-btn" type="button" title="Ververs lijst">↻</button>
+            <div class="drawer-library-actions">
+              <button id="btn-open-machine-form" class="drawer-icon-btn drawer-create-btn" type="button"
+                title="Nieuwe machine toevoegen"><i data-lucide="plus"></i></button>
+              <button id="sb-refresh-btn" class="drawer-icon-btn" type="button" title="Ververs lijst"><i data-lucide="refresh-cw"></i></button>
+            </div>
           </div>
 
           <div id="sb-file-list" class="sb-file-list">
@@ -108,10 +125,10 @@
         <aside id="machine-overlay" class="machine-overlay" aria-label="Nieuwe machine toevoegen">
           <div class="overlay-header">
             <div class="overlay-title-row">
-              <span class="overlay-icon">⬡</span>
+              <span class="overlay-icon"><i data-lucide="plus-circle"></i></span>
               <span class="overlay-title">Nieuwe machine toevoegen</span>
             </div>
-            <button id="overlay-close" class="overlay-close" type="button" title="Sluit panel">✕</button>
+            <button id="overlay-close" class="overlay-close" type="button" title="Sluit panel"><i data-lucide="x"></i></button>
           </div>
 
           <div class="overlay-content">
@@ -121,23 +138,37 @@
             </div>
 
             <div class="overlay-section">
+              <label class="overlay-label" for="machine-category">Zone / Categorie</label>
+              <select id="machine-category" class="overlay-input">
+                <option value="">-- Selecteer een zone --</option>
+                <option value="1">Verspanningszone</option>
+                <option value="2">(De)montagezone</option>
+                <option value="3">Lasplaats</option>
+                <option value="4">CNC zone</option>
+                <option value="5">Magazijn</option>
+                <option value="6">Reinigingzone</option>
+                <option value="7">Overige</option>
+              </select>
+            </div>
+
+            <div class="overlay-section">
               <p class="overlay-label">3D Model</p>
               <label id="model-drop-zone" class="model-drop-zone" for="model-file-input" tabindex="0" role="button"
                 aria-label="Sleep een .glb of .gltf bestand hierheen, of klik om te bladeren">
-                <span class="drop-icon">↑</span>
+                <span class="drop-icon"><i data-lucide="upload"></i></span>
                 <span class="drop-primary">Sleep .glb of .gltf hier</span>
                 <span class="drop-secondary">of klik om te bladeren</span>
                 <input id="model-file-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
                   style="position:absolute;inset:0;opacity:0;cursor:pointer;">
               </label>
               <div id="model-preview" class="model-preview is-hidden">
-                <span class="model-preview-icon">◈</span>
+                <span class="model-preview-icon"><i data-lucide="box"></i></span>
                 <div class="model-preview-info">
                   <span id="model-preview-name" class="model-preview-name">filename.glb</span>
                   <span id="model-preview-size" class="model-preview-size">— KB</span>
                 </div>
                 <button id="model-preview-clear" class="model-preview-clear" type="button"
-                  title="Verwijder bestand">✕</button>
+                  title="Verwijder bestand"><i data-lucide="x"></i></button>
               </div>
             </div>
 
@@ -182,7 +213,7 @@
       <nav class="taskbar" aria-label="Docenthulpmiddelen">
         <!-- Primary: add / upload action -->
         <button id="btn-open-uploader" class="task-btn primary" type="button" title="Voeg nieuwe machine toe">
-          <span class="task-icon task-icon-plus">＋</span>
+          <span class="task-icon task-icon-plus"><i data-lucide="plus"></i></span>
           <span class="task-label">Voeg nieuwe machine toe</span>
         </button>
 
@@ -192,15 +223,19 @@
         <!-- Transform tools (disabled until an object is selected) -->
         <div class="taskbar-group">
           <button id="btn-tool-move" class="task-btn" type="button" title="Verplaatsen (G)" disabled>
-            <span class="task-icon">⤢</span>
+            <span class="task-icon"><i data-lucide="move"></i></span>
             <span class="task-label">Verplaatsen</span>
           </button>
           <button id="btn-tool-rotate" class="task-btn" type="button" title="Draaien (R)" disabled>
-            <span class="task-icon">↻</span>
+            <span class="task-icon"><i data-lucide="rotate-cw"></i></span>
             <span class="task-label">Draaien</span>
           </button>
+          <button id="btn-tool-edit" class="task-btn" type="button" title="Bewerken" disabled>
+            <span class="task-icon"><i data-lucide="pencil"></i></span>
+            <span class="task-label">Bewerken</span>
+          </button>
           <button id="btn-tool-delete" class="task-btn danger" type="button" title="Verwijderen (Delete)" disabled>
-            <span class="task-icon">✕</span>
+            <span class="task-icon"><i data-lucide="trash-2"></i></span>
             <span class="task-label">Verwijderen</span>
           </button>
         </div>
@@ -221,12 +256,13 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+  <script src="public/js/libs/TransformControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script src="js/core/state.js"></script>
+  <script src="js/core/preloader.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/objects/factory.js"></script>
   <script src="js/tools/transform.js"></script>
@@ -234,6 +270,9 @@
   <script src="js/core/database.js"></script>
   <script src="auth.js"></script>
   <script src="js/core/main.js"></script>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => lucide.createIcons());</script>
 </body>
 
 </html>
